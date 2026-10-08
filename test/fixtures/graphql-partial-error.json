@@ -1,0 +1,51 @@
+{
+  "data": {
+    "reviewRequested": {
+      "nodes": []
+    },
+    "mine": {
+      "nodes": []
+    },
+    "mentions": {
+      "nodes": []
+    },
+    "t0": null,
+    "t1": {
+      "nodes": [
+        {
+          "url": "https://github.com/acme/api/pull/9",
+          "number": 9,
+          "title": "Docs",
+          "isDraft": false,
+          "reviewDecision": "REVIEW_REQUIRED",
+          "mergeable": "MERGEABLE",
+          "updatedAt": "2026-10-07T10:00:00Z",
+          "repository": {
+            "nameWithOwner": "acme/api"
+          },
+          "author": {
+            "login": "carol"
+          },
+          "commits": {
+            "nodes": []
+          },
+          "comments": {
+            "nodes": []
+          },
+          "reviews": {
+            "nodes": []
+          }
+        }
+      ]
+    }
+  },
+  "errors": [
+    {
+      "type": "FORBIDDEN",
+      "path": [
+        "t0"
+      ],
+      "message": "Resource protected by organization SAML enforcement."
+    }
+  ]
+}
