@@ -105,6 +105,16 @@ app.get('/api/me', async (c) => {
 })
 
 app.all('/api/*', (c) => error(c, 404, 'not_found'))
+app.get('/ws', async (c) => {
+  if (c.req.header('Upgrade')?.toLowerCase() !== 'websocket') return c.text('Expected a WebSocket', 426)
+  if (!sameOrigin(c.req.raw)) return error(c, 403, 'bad_origin')
+  const member = await requireMember(c)
+  if (member instanceof Response) return member
+  const headers = new Headers(c.req.raw.headers)
+  headers.delete('X-Platha-Member')
+  headers.set('X-Platha-Member', String(member.githubId))
+  return office(c.env).fetch(new Request(c.req.url, { headers }))
+})
 app.all('/ws', (c) => error(c, 404, 'not_found'))
 app.all('*', (c) => c.env.ASSETS.fetch(c.req.raw))
 
