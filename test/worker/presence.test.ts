@@ -121,14 +121,23 @@ describe('going offline', () => {
     expect(bobUpdates).toHaveLength(1)
   })
 
-  test('stale socket with no ping for 60s is closed and goes offline after grace', async () => {
+  test('a background tab pinging once a minute stays connected', async () => {
     const b = await connect(bobCookie)
     await b.next('snapshot')
-    await setNow(mainOffice(), T0 + 61_000)
+    await setNow(mainOffice(), T0 + 90_000)
+    await runDurableObjectAlarm(mainOffice())
+    expect(b.closed).toBeNull()
+    expect(await onlineOf(2)).toBe(true)
+  })
+
+  test('stale socket with no ping for 150s is closed and goes offline after grace', async () => {
+    const b = await connect(bobCookie)
+    await b.next('snapshot')
+    await setNow(mainOffice(), T0 + 151_000)
     await runDurableObjectAlarm(mainOffice())
     expect((await b.waitClosed()).code).toBe(4408)
     expect(await onlineOf(2)).toBe(true)
-    await setNow(mainOffice(), T0 + 92_000)
+    await setNow(mainOffice(), T0 + 182_000)
     await runDurableObjectAlarm(mainOffice())
     expect(await onlineOf(2)).toBe(false)
   })

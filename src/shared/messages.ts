@@ -38,6 +38,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('member_updated'), member }),
   z.object({ type: z.literal('member_removed'), githubId }),
   z.object({ type: z.literal('knock'), knockId, from: githubId, meetUrl }),
+  z.object({ type: z.literal('knock_ringing'), knockId }),
   z.object({ type: z.literal('knock_answered'), knockId, answer }),
   z.object({ type: z.literal('knock_failed'), knockId, reason: z.literal('offline') }),
   z.object({ type: z.literal('session_revoked') }),

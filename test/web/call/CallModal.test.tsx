@@ -30,8 +30,12 @@ test('call modal rejects non-meet links and accepts ?authuser=0', async () => {
 
 test('call modal shows outgoing status copy', () => {
   const props = { member: bob, popupBlocked: false, onSubmit: () => {}, onCancel: () => {} }
-  const { rerender } = render(<CallModal {...props} outgoing={{ knockId: 'k', to: bob, state: 'ringing' }} />)
+  const { rerender } = render(<CallModal {...props} outgoing={{ knockId: 'k', to: bob, state: 'calling' }} />)
   expect(screen.getByRole('status')).toHaveTextContent('Calling Bob…')
+  rerender(<CallModal {...props} outgoing={{ knockId: 'k', to: bob, state: 'ringing' }} />)
+  expect(screen.getByRole('status')).toHaveTextContent('Ringing Bob…')
+  rerender(<CallModal {...props} outgoing={{ knockId: 'k', to: bob, state: 'unreachable' }} />)
+  expect(screen.getByRole('status')).toHaveTextContent("Couldn't reach Bob")
   rerender(<CallModal {...props} outgoing={{ knockId: 'k', to: bob, state: 'declined' }} />)
   expect(screen.getByRole('status')).toHaveTextContent("Bob can't talk right now")
   rerender(<CallModal {...props} outgoing={{ knockId: 'k', to: bob, state: 'no_answer' }} />)

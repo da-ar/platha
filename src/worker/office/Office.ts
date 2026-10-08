@@ -11,7 +11,9 @@ export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
 const JOIN_FAILURE_WINDOW_MS = 10 * 60 * 1000
 const JOIN_FAILURE_LIMIT = 10
 const OFFLINE_GRACE_MS = 30_000
-const STALE_SOCKET_MS = 60_000
+// Browsers throttle timers in background tabs to about once a minute, so the
+// client's 25 s ping can arrive ~60 s apart. Allow well over that.
+const STALE_SOCKET_MS = 150_000
 const ALARM_INTERVAL_MS = 30_000
 const OPEN = 1
 
@@ -124,6 +126,7 @@ export class Office extends DurableObject<Env> {
           this.sendTo(from, { type: 'knock_failed', knockId: msg.knockId, reason: 'offline' })
         } else {
           this.sendTo(msg.to, { type: 'knock', knockId: msg.knockId, from, meetUrl: msg.meetUrl })
+          this.sendTo(from, { type: 'knock_ringing', knockId: msg.knockId })
         }
         return
       case 'knock_answer':

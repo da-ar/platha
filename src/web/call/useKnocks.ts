@@ -4,8 +4,17 @@ import { openTab } from '../navigate'
 import type { Office } from '../office/useOffice'
 
 export const KNOCK_TIMEOUT_MS = 45_000
+/** How long to wait for the server to confirm it rang the callee. */
+export const KNOCK_ACK_MS = 8_000
 
-export type OutgoingState = 'ringing' | 'joined' | 'declined' | 'no_answer' | 'went_offline'
+/**
+ * `calling`: sent, waiting for the server to confirm delivery.
+ * `ringing`: the callee's browser has been sent the knock.
+ * `unreachable`: the knock never reached the server.
+ */
+export type OutgoingState = 'calling' | 'ringing' | 'joined' | 'declined' | 'no_answer' | 'went_offline' | 'unreachable'
+
+const ACTIVE: OutgoingState[] = ['calling', 'ringing']
 
 export interface Outgoing {
   knockId: string
@@ -43,10 +52,11 @@ export function useKnocks(office: Pick<Office, 'send' | 'subscribe'>, members: R
     timers.current.add(t)
   }, [])
 
-  const updateOutgoing = useCallback((knockId: string, state: OutgoingState, onlyIfRinging = true) => {
+  /** Moves an in-progress knock to `state`; answers and timeouts after that are ignored. */
+  const updateOutgoing = useCallback((knockId: string, state: OutgoingState, from: OutgoingState[] = ACTIVE) => {
     const current = outgoingRef.current
     if (!current || current.knockId !== knockId) return
-    if (onlyIfRinging && current.state !== 'ringing') return
+    if (!from.includes(current.state)) return
     const next = { ...current, state }
     outgoingRef.current = next
     setOutgoing(next)
@@ -68,6 +78,9 @@ export function useKnocks(office: Pick<Office, 'send' | 'subscribe'>, members: R
             later(() => setIncoming((list) => list.filter((k) => k.knockId !== msg.knockId)), KNOCK_TIMEOUT_MS)
             return
           }
+          case 'knock_ringing':
+            updateOutgoing(msg.knockId, 'ringing', ['calling'])
+            return
           case 'knock_answered':
             updateOutgoing(msg.knockId, msg.answer === 'join' ? 'joined' : 'declined')
             return
@@ -93,10 +106,12 @@ export function useKnocks(office: Pick<Office, 'send' | 'subscribe'>, members: R
   const call = useCallback(
     (member: Member, meetUrl: string) => {
       const knockId = crypto.randomUUID()
-      const next: Outgoing = { knockId, to: member, state: 'ringing' }
+      const sent = office.send({ type: 'knock', knockId, to: member.githubId, meetUrl })
+      const next: Outgoing = { knockId, to: member, state: sent ? 'calling' : 'unreachable' }
       outgoingRef.current = next
       setOutgoing(next)
-      office.send({ type: 'knock', knockId, to: member.githubId, meetUrl })
+      if (!sent) return
+      later(() => updateOutgoing(knockId, 'unreachable', ['calling']), KNOCK_ACK_MS)
       later(() => updateOutgoing(knockId, 'no_answer'), KNOCK_TIMEOUT_MS)
     },
     [office.send, later, updateOutgoing],

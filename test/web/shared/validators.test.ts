@@ -11,6 +11,11 @@ describe('normalizeMeetUrl', () => {
     expect(normalizeMeetUrl('https://meet.google.com/abc-defg-hij/')).toBe('https://meet.google.com/abc-defg-hij')
   })
 
+  test('accepts a link copied without https://', () => {
+    expect(normalizeMeetUrl('meet.google.com/abc-defg-hij')).toBe('https://meet.google.com/abc-defg-hij')
+    expect(normalizeMeetUrl('meet.google.com.evil.io/abc-defg-hij')).toBeNull()
+  })
+
   test('rejects anything that is not a Meet room link', () => {
     expect(normalizeMeetUrl('http://meet.google.com/abc-defg-hij')).toBeNull()
     expect(normalizeMeetUrl('https://meet.google.com.evil.io/abc-defg-hij')).toBeNull()
