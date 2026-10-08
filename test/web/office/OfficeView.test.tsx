@@ -132,3 +132,19 @@ test('ticks without crashing', () => {
   act(() => vi.advanceTimersByTime(60_000))
   vi.useRealTimers()
 })
+
+describe('calling', () => {
+  test('tile opens drawer; call opens meet.new and the modal; ringing shows in the modal', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    render(<OfficeView me={me} config={config} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Carol, Online' }))
+    expect(screen.getByRole('dialog', { name: 'Carol' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Call' }))
+    expect(open).toHaveBeenCalledWith('https://meet.new', '_blank')
+    expect(screen.getByRole('link', { name: 'Open Google Meet' })).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('Meet link'), 'https://meet.google.com/abc-defg-hij')
+    await userEvent.click(screen.getByRole('button', { name: 'Ring Carol' }))
+    expect(office.send).toHaveBeenCalledWith(expect.objectContaining({ type: 'knock', to: 3, meetUrl: 'https://meet.google.com/abc-defg-hij' }))
+    expect(screen.getByText('Calling Carol…')).toBeInTheDocument()
+  })
+})
