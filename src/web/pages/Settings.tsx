@@ -7,7 +7,7 @@ import { useOffice } from '../office/useOffice'
 import { clearToken, setToken } from '../token'
 import { TokenField } from './TokenField'
 
-export function Settings({ me }: { me: Member }) {
+export function Settings({ me, meetUrl = null }: { me: Member; meetUrl?: string | null }) {
   const { state } = useOffice()
   const self = state.members[me.githubId] ?? me
   return (
@@ -19,6 +19,7 @@ export function Settings({ me }: { me: Member }) {
       </div>
       <h1>Settings</h1>
       <SlackSection me={self} />
+      <MeetRoomSection meetUrl={meetUrl} />
       <TokenSection />
       {self.role === 'admin' && <AdminSection me={self} members={Object.values(state.members)} />}
       <section className="panel">
@@ -46,7 +47,7 @@ function SlackSection({ me }: { me: Member }) {
 
   async function save(e: FormEvent) {
     e.preventDefault()
-    const r = await updateProfile(value.trim() === '' ? null : value)
+    const r = await updateProfile({ slackUserId: value.trim() === '' ? null : value })
     if (r.ok) {
       setValue(r.data.member.slackUserId ?? '')
       setMsg({ ok: true, text: 'Saved' })
@@ -68,6 +69,57 @@ function SlackSection({ me }: { me: Member }) {
             </button>
           </div>
           <span className="hint">Slack → your profile → ⋮ → Copy member ID</span>
+        </div>
+      </form>
+      {msg && (
+        <p role={msg.ok ? 'status' : 'alert'} className={msg.ok ? 'ok' : 'error'}>
+          {msg.text}
+        </p>
+      )}
+    </section>
+  )
+}
+
+function MeetRoomSection({ meetUrl }: { meetUrl: string | null }) {
+  const [value, setValue] = useState(meetUrl ?? '')
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  async function save(e: FormEvent) {
+    e.preventDefault()
+    const r = await updateProfile({ meetUrl: value.trim() === '' ? null : value })
+    if (r.ok) {
+      setValue(r.data.meetUrl ?? '')
+      setMsg({ ok: true, text: r.data.meetUrl ? 'Saved — Call now rings straight away with this room.' : 'Removed' })
+    } else {
+      setMsg({ ok: false, text: r.status === 400 ? "That doesn't look like a Meet link" : "Couldn't save — try again." })
+    }
+  }
+
+  return (
+    <section className="panel">
+      <h2>Meet room</h2>
+      <form onSubmit={save}>
+        <div className="field">
+          <label htmlFor="meet-room">Meet room link</label>
+          <div className="inline-form">
+            <input
+              id="meet-room"
+              autoComplete="off"
+              placeholder="https://meet.google.com/abc-defg-hij"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+            />
+            <button className="btn btn--primary" type="submit">
+              Save
+            </button>
+          </div>
+          <span className="hint">
+            Open{' '}
+            <a href="https://meet.new" target="_blank" rel="noopener noreferrer">
+              meet.new
+            </a>
+            , copy the link and paste it here. Calls you start will use this room. Only the person you call sees it.
+          </span>
         </div>
       </form>
       {msg && (

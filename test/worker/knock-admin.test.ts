@@ -144,3 +144,43 @@ describe('admin', () => {
     expect((await request('DELETE', '/api/admin/members/1', { cookie: bobCookie })).status).toBe(403)
   })
 })
+
+describe('personal Meet room', () => {
+  test('saving a room normalises it and rejects non-Meet links', async () => {
+    const ok = await request('PATCH', '/api/profile', { cookie: bobCookie, body: { meetUrl: ' meet.google.com/abc-defg-hij?authuser=0 ' } })
+    expect(ok.status).toBe(200)
+    expect((await ok.json<{ meetUrl: string }>()).meetUrl).toBe(MEET)
+    const bad = await request('PATCH', '/api/profile', { cookie: bobCookie, body: { meetUrl: 'https://zoom.us/j/1' } })
+    expect(bad.status).toBe(400)
+    expect(await bad.json()).toEqual({ error: 'invalid_meet_url' })
+    expect((await request('PATCH', '/api/profile', { cookie: bobCookie, body: { meetUrl: 42 } })).status).toBe(400)
+  })
+
+  test('slack id and room update independently, and blank clears', async () => {
+    await request('PATCH', '/api/profile', { cookie: bobCookie, body: { meetUrl: MEET } })
+    await request('PATCH', '/api/profile', { cookie: bobCookie, body: { slackUserId: 'U01ABCDEF' } })
+    let me = await (await request('GET', '/api/me', { cookie: bobCookie })).json<{ meetUrl: string | null; member: { slackUserId: string | null } }>()
+    expect(me.meetUrl).toBe(MEET)
+    expect(me.member.slackUserId).toBe('U01ABCDEF')
+    await request('PATCH', '/api/profile', { cookie: bobCookie, body: { meetUrl: '' } })
+    me = await (await request('GET', '/api/me', { cookie: bobCookie })).json()
+    expect(me.meetUrl).toBeNull()
+    expect(me.member.slackUserId).toBe('U01ABCDEF')
+  })
+
+  test('/api/me returns your own room only', async () => {
+    await request('PATCH', '/api/profile', { cookie: bobCookie, body: { meetUrl: MEET } })
+    expect((await (await request('GET', '/api/me', { cookie: bobCookie })).json<{ meetUrl: string }>()).meetUrl).toBe(MEET)
+    expect((await (await request('GET', '/api/me', { cookie: aliceCookie })).json<{ meetUrl: string | null }>()).meetUrl).toBeNull()
+  })
+
+  test('the room is never sent to other members', async () => {
+    const a = await connect(aliceCookie)
+    await a.next('snapshot')
+    await request('PATCH', '/api/profile', { cookie: bobCookie, body: { meetUrl: MEET, slackUserId: 'U01ABCDEF' } })
+    await a.next('member_updated', (m) => m.member.slackUserId === 'U01ABCDEF')
+    const a2 = await connect(aliceCookie)
+    await a2.next('snapshot')
+    expect(JSON.stringify([...a.messages, ...a2.messages])).not.toContain('abc-defg-hij')
+  })
+})

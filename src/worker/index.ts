@@ -101,16 +101,22 @@ app.post('/api/logout', async (c) => {
 app.get('/api/me', async (c) => {
   const member = await requireMember(c)
   if (member instanceof Response) return member
-  return c.json({ member, config: { org: c.env.GITHUB_ORG, slackTeamId: c.env.SLACK_TEAM_ID } })
+  const meetUrl = await office(c.env).getMeetUrl(member.githubId)
+  return c.json({ member, meetUrl, config: { org: c.env.GITHUB_ORG, slackTeamId: c.env.SLACK_TEAM_ID } })
 })
 
 app.patch('/api/profile', async (c) => {
   const member = await requireMember(c)
   if (member instanceof Response) return member
-  const { slackUserId } = await body(c)
-  if (slackUserId !== null && typeof slackUserId !== 'string') return error(c, 400, 'invalid_slack_id')
-  const r = await office(c.env).updateProfile(member.githubId, { slackUserId })
-  return r.ok ? c.json({ member: r.value }) : error(c, 400, r.error)
+  const { slackUserId, meetUrl } = await body(c)
+  const optionalString = (v: unknown) => v === undefined || v === null || typeof v === 'string'
+  if (!optionalString(slackUserId)) return error(c, 400, 'invalid_slack_id')
+  if (!optionalString(meetUrl)) return error(c, 400, 'invalid_meet_url')
+  const r = await office(c.env).updateProfile(member.githubId, {
+    slackUserId: slackUserId as string | null | undefined,
+    meetUrl: meetUrl as string | null | undefined,
+  })
+  return r.ok ? c.json(r.value) : error(c, 400, r.error)
 })
 
 function inviteUrl(c: AppContext, code: string): string {

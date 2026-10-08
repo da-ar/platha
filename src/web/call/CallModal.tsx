@@ -27,12 +27,15 @@ export function outgoingCopy(o: Outgoing): string {
 export function CallModal({
   member,
   popupBlocked,
+  roomUrl,
   outgoing,
   onSubmit,
   onCancel,
 }: {
   member: Member
   popupBlocked: boolean
+  /** Your saved Meet room, when the call used it. */
+  roomUrl?: string
   outgoing: Outgoing | null
   onSubmit: (meetUrl: string) => void
   onCancel: () => void
@@ -56,6 +59,13 @@ export function CallModal({
         {outgoing ? (
           <>
             <p role="status">{outgoingCopy(outgoing)}</p>
+            {roomUrl && (
+              <p className="hint">
+                <a href={roomUrl} target="_blank" rel="noopener noreferrer">
+                  Open your Meet room
+                </a>
+              </p>
+            )}
             <div className="modal__actions">
               <button className="btn" type="button" onClick={onCancel}>
                 Close
@@ -75,6 +85,9 @@ export function CallModal({
             ) : (
               <p>A new Google Meet opened in another tab. Copy its link and paste it here.</p>
             )}
+            <p className="hint">
+              Tip: save a Meet room in <a href="/settings">Settings</a> to skip this step.
+            </p>
             <div className="field">
               <label htmlFor="meet-link">Meet link</label>
               <input

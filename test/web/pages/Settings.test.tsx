@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Settings } from '../../../src/web/pages/Settings'
 import { useOffice } from '../../../src/web/office/useOffice'
@@ -32,7 +32,7 @@ test('saving a slack id calls updateProfile and shows saved', async () => {
   const calls = api()
   render(<Settings me={bob} />)
   await userEvent.type(screen.getByLabelText('Slack member ID'), 'u01abcdef')
-  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await userEvent.click(within(screen.getByRole('heading', { name: 'Slack' }).closest('section')!).getByRole('button', { name: 'Save' }))
   expect(await screen.findByText('Saved')).toBeInTheDocument()
   expect(calls).toContainEqual({ method: 'PATCH', path: '/api/profile', body: { slackUserId: 'u01abcdef' } })
   expect(screen.getByLabelText('Slack member ID')).toHaveValue('U01ABCDEF')
@@ -42,7 +42,7 @@ test('invalid slack id shows error from 400', async () => {
   api({ 'PATCH /api/profile': { status: 400 } })
   render(<Settings me={bob} />)
   await userEvent.type(screen.getByLabelText('Slack member ID'), 'C123')
-  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await userEvent.click(within(screen.getByRole('heading', { name: 'Slack' }).closest('section')!).getByRole('button', { name: 'Save' }))
   expect(await screen.findByRole('alert')).toHaveTextContent("That isn't a Slack member ID")
 })
 
@@ -87,4 +87,32 @@ test('replace token and sign out', async () => {
   await waitFor(() => expect(go).toHaveBeenCalledWith('/'))
   expect(calls).toContainEqual({ method: 'POST', path: '/api/logout', body: undefined })
   expect(getToken()).toBeNull()
+})
+
+test('saving a Meet room sends only the room and shows the saved state', async () => {
+  const calls = api({
+    'PATCH /api/profile': { status: 200, body: { member: bob, meetUrl: 'https://meet.google.com/abc-defg-hij' } },
+  })
+  render(<Settings me={bob} meetUrl={null} />)
+  await userEvent.type(screen.getByLabelText('Meet room link'), 'meet.google.com/abc-defg-hij?authuser=0')
+  await userEvent.click(within(screen.getByRole('heading', { name: 'Meet room' }).closest('section')!).getByRole('button', { name: 'Save' }))
+  expect(await screen.findByText(/Call now rings straight away/)).toBeInTheDocument()
+  expect(calls).toContainEqual({ method: 'PATCH', path: '/api/profile', body: { meetUrl: 'meet.google.com/abc-defg-hij?authuser=0' } })
+  expect(screen.getByLabelText('Meet room link')).toHaveValue('https://meet.google.com/abc-defg-hij')
+})
+
+test('a saved room is pre-filled, can be cleared, and bad links are rejected', async () => {
+  api({ 'PATCH /api/profile': { status: 400 } })
+  render(<Settings me={bob} meetUrl="https://meet.google.com/abc-defg-hij" />)
+  const field = screen.getByLabelText('Meet room link')
+  expect(field).toHaveValue('https://meet.google.com/abc-defg-hij')
+  const save = () => userEvent.click(within(screen.getByRole('heading', { name: 'Meet room' }).closest('section')!).getByRole('button', { name: 'Save' }))
+  await userEvent.clear(field)
+  await userEvent.type(field, 'https://zoom.us/j/1')
+  await save()
+  expect(await screen.findByRole('alert')).toHaveTextContent("That doesn't look like a Meet link")
+  api({ 'PATCH /api/profile': { status: 200, body: { member: bob, meetUrl: null } } })
+  await userEvent.clear(field)
+  await save()
+  expect(await screen.findByText('Removed')).toBeInTheDocument()
 })

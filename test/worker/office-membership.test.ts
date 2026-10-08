@@ -150,3 +150,27 @@ describe('join failure cleanup', () => {
     expect(await office.checkInvite(inviteCode, '1.1.1.1')).toEqual({ ok: false, error: 'rate_limited' })
   })
 })
+
+describe('migration', () => {
+  test('an existing members table gains meet_url and keeps its rows', async () => {
+    const office = freshOffice()
+    await runInDurableObject(office, (_o: Office, state) => {
+      const sql = state.storage.sql
+      sql.exec('DROP TABLE members')
+      sql.exec(`CREATE TABLE members (github_id INTEGER PRIMARY KEY, login TEXT NOT NULL, name TEXT, avatar_url TEXT NOT NULL,
+        slack_user_id TEXT, role TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'available', status_text TEXT, joined_at INTEGER NOT NULL)`)
+      sql.exec("INSERT INTO members (github_id, login, avatar_url, role, joined_at) VALUES (1, 'alice', 'https://a', 'admin', 0)")
+    })
+    const columns = await runInDurableObject(office, async (_o: Office, state) => {
+      const { migrate } = await import('../../src/worker/office/store')
+      migrate(state.storage.sql)
+      migrate(state.storage.sql)
+      return {
+        cols: state.storage.sql.exec<{ name: string }>('PRAGMA table_info(members)').toArray().map((c) => c.name),
+        rows: state.storage.sql.exec('SELECT login, meet_url FROM members').toArray(),
+      }
+    })
+    expect(columns.cols).toContain('meet_url')
+    expect(columns.rows).toEqual([{ login: 'alice', meet_url: null }])
+  })
+})

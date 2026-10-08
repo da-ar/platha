@@ -179,6 +179,29 @@ test('ticks without crashing', () => {
 })
 
 describe('calling', () => {
+  test('with a saved room, Call rings straight away and opens the room', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    const room = 'https://meet.google.com/xyz-abcd-efg'
+    render(<OfficeView me={me} config={config} meetUrl={room} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Carol, Online' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Call' }))
+    expect(office.send).toHaveBeenCalledWith(expect.objectContaining({ type: 'knock', to: 3, meetUrl: room }))
+    expect(openTab).toHaveBeenCalledWith(room)
+    expect(open).not.toHaveBeenCalledWith('https://meet.new', '_blank')
+    expect(screen.queryByLabelText('Meet link')).toBeNull()
+    expect(screen.getByText('Calling Carol…')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open your Meet room' })).toHaveAttribute('href', room)
+  })
+
+  test('without a saved room, the paste flow suggests saving one', async () => {
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    render(<OfficeView me={me} config={config} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Carol, Online' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Call' }))
+    expect(screen.getByLabelText('Meet link')).toBeInTheDocument()
+    expect(within(screen.getByRole('dialog', { name: 'Call Carol' })).getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings')
+  })
+
   test('tile opens drawer; call opens meet.new and the modal; ringing shows in the modal', async () => {
     const open = vi.spyOn(window, 'open').mockReturnValue(null)
     render(<OfficeView me={me} config={config} />)

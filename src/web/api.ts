@@ -9,6 +9,8 @@ export interface OfficeConfig {
 
 export interface Me {
   member: Member
+  /** Your own saved Meet room, if any. Private to you. */
+  meetUrl: string | null
   config: OfficeConfig
 }
 
@@ -35,7 +37,11 @@ export const setup = (secret: string, token: string) => call<{ inviteUrl: string
 export const join = (code: string, token: string) => call<object>('POST', '/api/join', { code, token: token.trim() })
 export const login = (token: string) => call<object>('POST', '/api/login', { token: token.trim() })
 export const logout = () => call<void>('POST', '/api/logout')
-export const updateProfile = (slackUserId: string | null) => call<{ member: Member }>('PATCH', '/api/profile', { slackUserId })
+export interface ProfilePatch {
+  slackUserId?: string | null
+  meetUrl?: string | null
+}
+export const updateProfile = (patch: ProfilePatch) => call<{ member: Member; meetUrl: string | null }>('PATCH', '/api/profile', patch)
 export const getInvite = () => call<{ inviteUrl: string }>('GET', '/api/admin/invite')
 export const rotateInvite = () => call<{ inviteUrl: string }>('POST', '/api/admin/invite/rotate')
 export const removeMember = (githubId: number) => call<void>('DELETE', `/api/admin/members/${githubId}`)
