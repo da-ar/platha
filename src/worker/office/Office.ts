@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers'
+import { parseClientMessage, type ClientMessage, type ServerMessage } from '../../shared/messages'
 import type { Member, Result } from '../../shared/types'
 import { randomId, safeEqual } from '../crypto'
 import type { Env } from '../env'
@@ -8,6 +9,15 @@ import * as store from './store'
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
 const JOIN_FAILURE_WINDOW_MS = 10 * 60 * 1000
 const JOIN_FAILURE_LIMIT = 10
+const OFFLINE_GRACE_MS = 30_000
+const STALE_SOCKET_MS = 60_000
+const ALARM_INTERVAL_MS = 30_000
+const OPEN = 1
+
+interface SocketAttachment {
+  githubId: number
+  connectedAt: number
+}
 
 export class Office extends DurableObject<Env> {
   /** Overridable clock, for tests. */
@@ -19,6 +29,140 @@ export class Office extends DurableObject<Env> {
     super(ctx, env)
     this.sql = ctx.storage.sql
     void ctx.blockConcurrencyWhile(async () => store.migrate(this.sql))
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'))
+  }
+
+  // --- presence ------------------------------------------------------------
+
+  /** Accepts a WebSocket for the member named in `X-Platha-Member` (set by the Worker after checking the session). */
+  async fetch(req: Request): Promise<Response> {
+    const githubId = Number(req.headers.get('X-Platha-Member'))
+    if (!store.getMember(this.sql, githubId)) return new Response('unknown member', { status: 401 })
+    const { 0: client, 1: server } = new WebSocketPair()
+    this.ctx.acceptWebSocket(server, [String(githubId)])
+    server.serializeAttachment({ githubId, connectedAt: this.now() } satisfies SocketAttachment)
+
+    const firstSocket = this.socketsOf(githubId).length === 1
+    const wasPending = store.getPendingOffline(this.sql, githubId) !== null
+    store.clearPendingOffline(this.sql, githubId)
+
+    this.send(server, { type: 'snapshot', members: await this.snapshot() })
+    if (firstSocket && !wasPending) this.memberChanged(githubId, server)
+    await this.scheduleAlarm(ALARM_INTERVAL_MS)
+    return new Response(null, { status: 101, webSocket: client })
+  }
+
+  async snapshot(): Promise<Member[]> {
+    return store.listMembers(this.sql).map((m) => this.withPresence(m))
+  }
+
+  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    if (typeof message !== 'string' || message === 'ping') return
+    const msg = parseClientMessage(message)
+    const from = this.attachment(ws)?.githubId
+    if (!msg || from === undefined) return
+    this.handleMessage(from, msg)
+  }
+
+  async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
+    try {
+      ws.close(code, reason)
+    } catch {
+      // already closed
+    }
+    await this.socketGone(ws)
+  }
+
+  async webSocketError(ws: WebSocket): Promise<void> {
+    await this.socketGone(ws)
+  }
+
+  async alarm(): Promise<void> {
+    const now = this.now()
+
+    for (const ws of this.ctx.getWebSockets()) {
+      const att = this.attachment(ws)
+      if (!att || ws.readyState !== OPEN) continue
+      const lastPing = this.ctx.getWebSocketAutoResponseTimestamp(ws)?.getTime() ?? att.connectedAt
+      if (now - Math.max(lastPing, att.connectedAt) > STALE_SOCKET_MS) {
+        try {
+          ws.close(4408, 'no ping')
+        } catch {
+          // already closed
+        }
+        await this.socketGone(ws)
+      }
+    }
+
+    let nextDue = Infinity
+    for (const { githubId, dueAt } of store.listPendingOffline(this.sql)) {
+      if (this.socketsOf(githubId).length > 0) {
+        store.clearPendingOffline(this.sql, githubId)
+      } else if (dueAt <= now) {
+        store.clearPendingOffline(this.sql, githubId)
+        this.memberChanged(githubId)
+      } else {
+        nextDue = Math.min(nextDue, dueAt - now)
+      }
+    }
+
+    if (nextDue !== Infinity) await this.scheduleAlarm(Math.max(1000, nextDue))
+    else if (this.ctx.getWebSockets().length > 0) await this.scheduleAlarm(ALARM_INTERVAL_MS)
+  }
+
+  protected handleMessage(from: number, msg: ClientMessage): void {
+    if (msg.type === 'set_status') {
+      store.setStatus(this.sql, from, msg.status, msg.text?.trim() || null)
+      this.memberChanged(from)
+    }
+  }
+
+  private async socketGone(ws: WebSocket): Promise<void> {
+    const att = this.attachment(ws)
+    if (!att) return
+    const others = this.socketsOf(att.githubId).filter((w) => w !== ws)
+    if (others.length > 0 || !store.getMember(this.sql, att.githubId)) return
+    if (store.getPendingOffline(this.sql, att.githubId) !== null) return
+    store.setPendingOffline(this.sql, att.githubId, this.now() + OFFLINE_GRACE_MS)
+    await this.scheduleAlarm(OFFLINE_GRACE_MS)
+  }
+
+  /**
+   * Alarms are scheduled on the real clock, as a delay: `now()` may be a test clock,
+   * and an alarm set in its past would fire immediately and spin.
+   */
+  private async scheduleAlarm(delayMs: number): Promise<void> {
+    const at = Date.now() + delayMs
+    const current = await this.ctx.storage.getAlarm()
+    if (current === null || current > at) await this.ctx.storage.setAlarm(at)
+  }
+
+  protected socketsOf(githubId: number): WebSocket[] {
+    return this.ctx.getWebSockets(String(githubId)).filter((w) => w.readyState === OPEN)
+  }
+
+  protected isOnline(githubId: number): boolean {
+    return this.socketsOf(githubId).length > 0 || store.getPendingOffline(this.sql, githubId) !== null
+  }
+
+  protected attachment(ws: WebSocket): SocketAttachment | null {
+    return (ws.deserializeAttachment() as SocketAttachment | null) ?? null
+  }
+
+  protected send(ws: WebSocket, msg: ServerMessage): void {
+    try {
+      ws.send(JSON.stringify(msg))
+    } catch {
+      // socket is closing; its close handler cleans up
+    }
+  }
+
+  protected sendTo(githubId: number, msg: ServerMessage): void {
+    for (const ws of this.socketsOf(githubId)) this.send(ws, msg)
+  }
+
+  protected broadcast(msg: ServerMessage): void {
+    for (const ws of this.ctx.getWebSockets()) if (ws.readyState === OPEN) this.send(ws, msg)
   }
 
   async isSetUp(): Promise<boolean> {
@@ -93,11 +237,16 @@ export class Office extends DurableObject<Env> {
   }
 
   protected withPresence(m: Member): Member {
-    return m
+    return { ...m, online: this.isOnline(m.githubId) }
   }
 
-  /** Hook for broadcasting profile changes; presence is added in a later step. */
-  protected memberChanged(_githubId: number): void {}
+  /** Broadcasts the member's current state to every socket except `exclude`. */
+  protected memberChanged(githubId: number, exclude?: WebSocket): void {
+    const member = this.member(githubId)
+    if (!member) return
+    const msg: ServerMessage = { type: 'member_updated', member }
+    for (const ws of this.ctx.getWebSockets()) if (ws !== exclude && ws.readyState === OPEN) this.send(ws, msg)
+  }
 
   private createSession(githubId: number): string {
     const id = randomId(32)
