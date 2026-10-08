@@ -3,7 +3,7 @@ import { createServer } from 'node:http'
 
 const users: Record<string, { id: number; login: string; name: null; avatar_url: string; email: string | null }> = {
   'alice-token': { id: 1, login: 'alice', name: null, avatar_url: 'https://avatars.githubusercontent.com/u/1', email: null },
-  'bob-token': { id: 2, login: 'bob', name: null, avatar_url: 'https://avatars.githubusercontent.com/u/2', email: 'bob@acme.dev' },
+  'bob-token': { id: 2, login: 'bob', name: null, avatar_url: 'https://avatars.githubusercontent.com/u/2', email: null },
 }
 
 /** Bob's fake public calendar: a meeting from 10 minutes ago to 50 minutes from now, plus one this afternoon. */
@@ -20,6 +20,13 @@ const port = Number(process.env.FAKE_GITHUB_PORT ?? 8790)
 createServer((req, res) => {
   const token = (req.headers.authorization ?? '').replace(/^Bearer /, '')
   const user = users[token]
+  if (req.method === 'GET' && req.url === '/user/emails') {
+    // Bob's work address is private: only visible here, with the Email addresses permission.
+    const emails = token === 'bob-token' ? [{ email: 'bob@acme.dev', primary: true, verified: true, visibility: 'private' }] : null
+    if (emails) res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(emails))
+    else res.writeHead(403, { 'Content-Type': 'application/json' }).end('{"message":"Resource not accessible by personal access token"}')
+    return
+  }
   if (req.method === 'GET' && req.url === '/user' && user) {
     res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(user))
   } else if (req.url === '/calendar/bob%40acme.dev/public/basic.ics') {

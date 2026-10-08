@@ -60,7 +60,7 @@ app.post('/api/setup', async (c) => {
   if (await o.isSetUp()) return error(c, 409, 'already_setup')
   const token = cleanToken(rawToken)
   if (!token) return error(c, 401, 'bad_token')
-  const user = await fetchGitHubUser(c.env.GITHUB_API_BASE, token)
+  const user = await fetchGitHubUser(c.env.GITHUB_API_BASE, token, c.env.CALENDAR_EMAIL_DOMAIN)
   if (!user.ok) return githubError(c, user.error)
   const r = await o.setup(user.value)
   if (!r.ok) return error(c, 409, r.error)
@@ -75,7 +75,7 @@ app.post('/api/join', async (c) => {
   if (!invite.ok) return invite.error === 'rate_limited' ? error(c, 429, 'rate_limited') : error(c, 404, 'bad_invite')
   const token = cleanToken(rawToken)
   if (!token) return error(c, 401, 'bad_token')
-  const user = await fetchGitHubUser(c.env.GITHUB_API_BASE, token)
+  const user = await fetchGitHubUser(c.env.GITHUB_API_BASE, token, c.env.CALENDAR_EMAIL_DOMAIN)
   if (!user.ok) return githubError(c, user.error)
   const { sessionId } = await o.addMember(user.value)
   return withSession(c, sessionId, {})
@@ -84,7 +84,7 @@ app.post('/api/join', async (c) => {
 app.post('/api/login', async (c) => {
   const token = cleanToken((await body(c)).token)
   if (!token) return error(c, 401, 'bad_token')
-  const user = await fetchGitHubUser(c.env.GITHUB_API_BASE, token)
+  const user = await fetchGitHubUser(c.env.GITHUB_API_BASE, token, c.env.CALENDAR_EMAIL_DOMAIN)
   if (!user.ok) return githubError(c, user.error)
   const r = await office(c.env).login(user.value)
   if (!r.ok) return error(c, 403, 'not_member')
@@ -109,7 +109,8 @@ app.get('/api/me', async (c) => {
   return c.json({
     member,
     meetUrl: value(meetUrl, null),
-    email: value(email, null),
+    email: value(email, null)?.email ?? null,
+    emailSource: value(email, null)?.source ?? null,
     calendarState: value(calendar, null)?.state ?? 'no_email',
     config: { org: c.env.GITHUB_ORG, slackTeamId: c.env.SLACK_TEAM_ID },
   })

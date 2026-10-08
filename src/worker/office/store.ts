@@ -1,6 +1,6 @@
 import type { Member, Role, Status } from '../../shared/types'
 import type { BusyBlock } from '../calendar'
-import type { GitHubIdentity } from '../github'
+import type { EmailSource, GitHubIdentity } from '../github'
 
 export function migrate(sql: SqlStorage): void {
   sql.exec(`
@@ -32,6 +32,7 @@ export function migrate(sql: SqlStorage): void {
   if (!columns.includes('meet_url')) sql.exec('ALTER TABLE members ADD COLUMN meet_url TEXT')
   // Public GitHub email, used to find their public calendar. Private; not part of Member.
   if (!columns.includes('email')) sql.exec('ALTER TABLE members ADD COLUMN email TEXT')
+  if (!columns.includes('email_source')) sql.exec('ALTER TABLE members ADD COLUMN email_source TEXT')
   sql.exec(`CREATE TABLE IF NOT EXISTS calendar_sync (
     github_id INTEGER PRIMARY KEY,
     email TEXT,
@@ -87,13 +88,15 @@ export function hasAdmin(sql: SqlStorage): boolean {
 /** Inserts the member, or refreshes login/name/avatar if the GitHub id is known. An existing role is kept. */
 export function upsertMember(sql: SqlStorage, identity: GitHubIdentity, role: Role, now: number): void {
   sql.exec(
-    `INSERT INTO members (github_id, login, name, avatar_url, email, role, joined_at) VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (github_id) DO UPDATE SET login = excluded.login, name = excluded.name, avatar_url = excluded.avatar_url, email = excluded.email`,
+    `INSERT INTO members (github_id, login, name, avatar_url, email, email_source, role, joined_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (github_id) DO UPDATE SET login = excluded.login, name = excluded.name, avatar_url = excluded.avatar_url,
+       email = excluded.email, email_source = excluded.email_source`,
     identity.id,
     identity.login,
     identity.name,
     identity.avatarUrl,
     identity.email ?? null,
+    identity.emailSource ?? null,
     role,
     now,
   )
@@ -101,11 +104,12 @@ export function upsertMember(sql: SqlStorage, identity: GitHubIdentity, role: Ro
 
 export function refreshProfile(sql: SqlStorage, identity: GitHubIdentity): boolean {
   const cursor = sql.exec(
-    'UPDATE members SET login = ?, name = ?, avatar_url = ?, email = ? WHERE github_id = ?',
+    'UPDATE members SET login = ?, name = ?, avatar_url = ?, email = ?, email_source = ? WHERE github_id = ?',
     identity.login,
     identity.name,
     identity.avatarUrl,
     identity.email ?? null,
+    identity.emailSource ?? null,
     identity.id,
   )
   return cursor.rowsWritten > 0
@@ -138,6 +142,11 @@ export function deleteMember(sql: SqlStorage, githubId: number): void {
 export function getEmail(sql: SqlStorage, githubId: number): string | null {
   const row = sql.exec<{ email: string | null }>('SELECT email FROM members WHERE github_id = ?', githubId).toArray()[0]
   return row?.email ?? null
+}
+
+export function getEmailSource(sql: SqlStorage, githubId: number): EmailSource | null {
+  const row = sql.exec<{ email_source: EmailSource | null }>('SELECT email_source FROM members WHERE github_id = ?', githubId).toArray()[0]
+  return row?.email_source ?? null
 }
 
 // --- calendar sync ---------------------------------------------------------

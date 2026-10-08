@@ -68,6 +68,6 @@ function SignedIn({ page }: { page: 'settings' | 'office' }) {
       </AuthCard>
     )
   }
-  if (page === 'settings') return <Settings me={state.data.member} meetUrl={state.data.meetUrl} email={state.data.email} calendarState={state.data.calendarState} />
+  if (page === 'settings') return <Settings me={state.data.member} meetUrl={state.data.meetUrl} email={state.data.email} emailSource={state.data.emailSource} calendarState={state.data.calendarState} />
   return <OfficeView me={state.data.member} config={state.data.config} meetUrl={state.data.meetUrl} />
 }

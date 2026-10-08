@@ -36,6 +36,8 @@ jobs:
       # (GitHub doesn't allow secret names starting with GITHUB_.)
       PLATHA_GITHUB_ORG: ${{ secrets.PLATHA_GITHUB_ORG }}
       PLATHA_SLACK_TEAM_ID: ${{ secrets.PLATHA_SLACK_TEAM_ID }}
+      # Optional: company email domain for picking each person's calendar address.
+      PLATHA_CALENDAR_DOMAIN: ${{ secrets.PLATHA_CALENDAR_DOMAIN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
