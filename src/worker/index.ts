@@ -104,6 +104,47 @@ app.get('/api/me', async (c) => {
   return c.json({ member, config: { org: c.env.GITHUB_ORG, slackTeamId: c.env.SLACK_TEAM_ID } })
 })
 
+app.patch('/api/profile', async (c) => {
+  const member = await requireMember(c)
+  if (member instanceof Response) return member
+  const { slackUserId } = await body(c)
+  if (slackUserId !== null && typeof slackUserId !== 'string') return error(c, 400, 'invalid_slack_id')
+  const r = await office(c.env).updateProfile(member.githubId, { slackUserId })
+  return r.ok ? c.json({ member: r.value }) : error(c, 400, r.error)
+})
+
+function inviteUrl(c: AppContext, code: string): string {
+  return `${new URL(c.req.url).origin}/join/${code}`
+}
+
+app.get('/api/admin/invite', async (c) => {
+  const member = await requireMember(c)
+  if (member instanceof Response) return member
+  const r = await office(c.env).getInvite(member.githubId)
+  return r.ok ? c.json({ inviteUrl: inviteUrl(c, r.value) }) : error(c, 403, r.error)
+})
+
+app.post('/api/admin/invite/rotate', async (c) => {
+  const member = await requireMember(c)
+  if (member instanceof Response) return member
+  const r = await office(c.env).rotateInvite(member.githubId)
+  return r.ok ? c.json({ inviteUrl: inviteUrl(c, r.value) }) : error(c, 403, r.error)
+})
+
+app.delete('/api/admin/members/:githubId', async (c) => {
+  const member = await requireMember(c)
+  if (member instanceof Response) return member
+  const target = Number(c.req.param('githubId'))
+  if (!Number.isSafeInteger(target) || target <= 0) {
+    return member.role === 'admin' ? error(c, 404, 'not_found') : error(c, 403, 'forbidden')
+  }
+  const r = await office(c.env).removeMember(member.githubId, target)
+  if (r.ok) return c.body(null, 204)
+  if (r.error === 'forbidden') return error(c, 403, r.error)
+  if (r.error === 'not_found') return error(c, 404, r.error)
+  return error(c, 400, r.error)
+})
+
 app.all('/api/*', (c) => error(c, 404, 'not_found'))
 app.get('/ws', async (c) => {
   if (c.req.header('Upgrade')?.toLowerCase() !== 'websocket') return c.text('Expected a WebSocket', 426)
