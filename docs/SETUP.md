@@ -16,15 +16,20 @@ npx wrangler login
 
 ## 2. Point Platha at your GitHub org and Slack workspace
 
-Edit `wrangler.jsonc` and fill in the two `vars`:
+These two values are never committed. `npm run deploy` passes them to Cloudflare at deploy time, reading them from:
 
-```jsonc
-"vars": {
-  "GITHUB_ORG": "acme",        // your GitHub organisation's login
-  "SLACK_TEAM_ID": "T0123456", // your Slack workspace ID
-  ...
-}
+- `PLATHA_GITHUB_ORG`: your GitHub organisation's login, e.g. `acme`
+- `PLATHA_SLACK_TEAM_ID`: your Slack workspace ID, e.g. `T0123456`
+
+To deploy from your machine, copy the example file and fill it in. `.deploy.env` is git-ignored.
+
+```sh
+cp .deploy.env.example .deploy.env
 ```
+
+You can set them as environment variables instead. For deploys from GitHub Actions, they're repository secrets (step 9).
+
+The deploy stops with an error if either value is missing or malformed, so a deploy can't wipe them by accident.
 
 **Finding your Slack workspace ID:** open Slack in a browser at <https://app.slack.com>. The address looks like `https://app.slack.com/client/T0123456/C…`. The part starting with `T` is the workspace ID.
 
@@ -112,11 +117,15 @@ npm run e2e     # two browsers, a fake GitHub, and a local Worker
 
 ## 9. Optional: deploy on every push to `main`
 
-`.github/workflows/deploy.yml` runs the tests on every push and pull request. On `main` it also deploys, once you add two repository secrets (**Settings → Secrets and variables → Actions**):
+`.github/workflows/deploy.yml` runs the tests on every push and pull request. On `main` it also deploys, once you add these repository secrets (**Settings → Secrets and variables → Actions → New repository secret**):
 
 - `CLOUDFLARE_API_TOKEN`: create it at **Cloudflare dashboard → My Profile → API Tokens → Create Token**, using the **Edit Cloudflare Workers** template.
 - `CLOUDFLARE_ACCOUNT_ID`: shown on the Workers & Pages overview page.
+- `PLATHA_GITHUB_ORG`: your GitHub organisation's login (step 2).
+- `PLATHA_SLACK_TEAM_ID`: your Slack workspace ID (step 2).
 
-Until those secrets exist, the deploy step is skipped.
+The names start with `PLATHA_` because GitHub doesn't allow secret names beginning with `GITHUB_`.
+
+Until `CLOUDFLARE_API_TOKEN` exists, the deploy step is skipped. If it exists but either `PLATHA_` secret is missing, the deploy fails rather than deploying a broken office.
 
 `SETUP_SECRET` stays in Cloudflare (step 3); CI doesn't need it.

@@ -11,7 +11,7 @@
     "test:web": "vitest run -c vitest.web.config.ts",
     "test": "npm run test:worker && npm run test:web",
     "e2e": "playwright test",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "node --env-file-if-exists=.deploy.env scripts/deploy.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.worker.json && tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {

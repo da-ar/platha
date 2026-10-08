@@ -3,6 +3,7 @@ node_modules/
 dist/
 .wrangler/
 .dev.vars
+.deploy.env
 test-results/
 playwright-report/
 *.tsbuildinfo

@@ -13,11 +13,10 @@
     "bindings": [{ "name": "OFFICE", "class_name": "Office" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Office"] }],
+  // GITHUB_ORG and SLACK_TEAM_ID are not set here: `npm run deploy` passes them
+  // in from PLATHA_GITHUB_ORG / PLATHA_SLACK_TEAM_ID (see docs/SETUP.md), and
+  // local dev reads them from .dev.vars.
   "vars": {
-    // Your GitHub organisation login, e.g. "acme".
-    "GITHUB_ORG": "",
-    // Your Slack workspace ID (starts with T), see docs/SETUP.md.
-    "SLACK_TEAM_ID": "",
     "GITHUB_API_BASE": "https://api.github.com"
   }
 }
