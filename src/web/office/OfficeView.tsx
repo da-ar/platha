@@ -1,12 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { displayName, type Member } from '../../shared/types'
 import type { OfficeConfig } from '../api'
+import { CallModal } from '../call/CallModal'
+import { KnockToasts } from '../call/KnockToast'
+import { openNewMeet } from '../call/meet'
+import { useKnocks } from '../call/useKnocks'
 import { computeAttention, type AttentionItem } from '../github/attention'
 import { loadSeen, markSeen } from '../github/seen'
 import { useGitHub } from '../github/useGitHub'
 import { openTab } from '../navigate'
 import { setToken } from '../token'
 import { Banner, TokenBanner, updatedAgo } from './Banner'
+import { Drawer } from './Drawer'
 import { NeedsYou } from './NeedsYou'
 import { StatusPicker } from './StatusPicker'
 import { Tile } from './Tile'
@@ -31,7 +36,10 @@ export function OfficeView({ me, config }: { me: Member; config: OfficeConfig })
   const office = useOffice()
   const { state, send } = office
   const now = useNow(30_000)
-  const [, setSelected] = useState<number | null>(null)
+  const [selected, setSelected] = useState<number | null>(null)
+  const [calling, setCalling] = useState<{ member: Member; popupBlocked: boolean } | null>(null)
+  const knocks = useKnocks(office, state.members)
+  const closeDrawer = useCallback(() => setSelected(null), [])
   const [seen, setSeen] = useState(loadSeen)
 
   const members = useMemo(() => {
@@ -56,6 +64,13 @@ export function OfficeView({ me, config }: { me: Member; config: OfficeConfig })
     if (!github.snapshot) return undefined
     return m.githubId === me.githubId ? github.snapshot.mine : github.snapshot.byTeammate[m.login]
   }
+
+  function startCall(m: Member) {
+    knocks.dismissOutgoing()
+    setCalling({ member: m, popupBlocked: !openNewMeet() })
+  }
+
+  const selectedMember = selected === null ? null : (state.members[selected] ?? null)
 
   if (state.connection === 'removed') {
     return (
@@ -108,6 +123,30 @@ export function OfficeView({ me, config }: { me: Member; config: OfficeConfig })
           <NeedsYou items={items} status={github.status} onOpen={openItem} />
         </aside>
       </main>
+
+      {selectedMember && (
+        <Drawer
+          member={selectedMember}
+          prs={prsFor(selectedMember)}
+          isMe={selectedMember.githubId === me.githubId}
+          slackTeamId={config.slackTeamId}
+          onClose={closeDrawer}
+          onCall={() => startCall(selectedMember)}
+        />
+      )}
+      {calling && (
+        <CallModal
+          member={calling.member}
+          popupBlocked={calling.popupBlocked}
+          outgoing={knocks.outgoing && knocks.outgoing.to.githubId === calling.member.githubId ? knocks.outgoing : null}
+          onSubmit={(url) => knocks.call(calling.member, url)}
+          onCancel={() => {
+            setCalling(null)
+            knocks.dismissOutgoing()
+          }}
+        />
+      )}
+      <KnockToasts incoming={knocks.incoming} onAnswer={knocks.answer} />
     </div>
   )
 }
