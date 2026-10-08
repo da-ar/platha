@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import { parseClientMessage, type ClientMessage, type ServerMessage } from '../../shared/messages'
 import type { Member, Result } from '../../shared/types'
+import { normalizeSlackUserId } from '../../shared/validators'
 import { randomId, safeEqual } from '../crypto'
 import type { Env } from '../env'
 import type { GitHubIdentity } from '../github'
@@ -111,10 +112,64 @@ export class Office extends DurableObject<Env> {
   }
 
   protected handleMessage(from: number, msg: ClientMessage): void {
-    if (msg.type === 'set_status') {
-      store.setStatus(this.sql, from, msg.status, msg.text?.trim() || null)
-      this.memberChanged(from)
+    switch (msg.type) {
+      case 'set_status':
+        store.setStatus(this.sql, from, msg.status, msg.text?.trim() || null)
+        this.memberChanged(from)
+        return
+      case 'knock':
+        // Knocks are relayed, never persisted.
+        if (msg.to === from || !store.getMember(this.sql, msg.to)) return
+        if (this.socketsOf(msg.to).length === 0) {
+          this.sendTo(from, { type: 'knock_failed', knockId: msg.knockId, reason: 'offline' })
+        } else {
+          this.sendTo(msg.to, { type: 'knock', knockId: msg.knockId, from, meetUrl: msg.meetUrl })
+        }
+        return
+      case 'knock_answer':
+        if (msg.to === from || !store.getMember(this.sql, msg.to)) return
+        this.sendTo(msg.to, { type: 'knock_answered', knockId: msg.knockId, answer: msg.answer })
+        return
     }
+  }
+
+  // --- profile and admin ---------------------------------------------------
+
+  async updateProfile(githubId: number, profile: { slackUserId: string | null }): Promise<Result<Member, 'invalid_slack_id'>> {
+    let slackUserId: string | null = null
+    if (profile.slackUserId !== null && profile.slackUserId.trim() !== '') {
+      slackUserId = normalizeSlackUserId(profile.slackUserId)
+      if (slackUserId === null) return { ok: false, error: 'invalid_slack_id' }
+    }
+    store.setSlackUserId(this.sql, githubId, slackUserId)
+    this.memberChanged(githubId)
+    const member = this.member(githubId)
+    if (!member) throw new Error('member vanished')
+    return { ok: true, value: member }
+  }
+
+  async removeMember(adminId: number, githubId: number): Promise<Result<null, 'forbidden' | 'not_found' | 'cannot_remove_self'>> {
+    if (!this.isAdmin(adminId)) return { ok: false, error: 'forbidden' }
+    if (adminId === githubId) return { ok: false, error: 'cannot_remove_self' }
+    if (!store.getMember(this.sql, githubId)) return { ok: false, error: 'not_found' }
+    store.deleteMember(this.sql, githubId)
+    for (const ws of this.socketsOf(githubId)) {
+      this.send(ws, { type: 'session_revoked' })
+      try {
+        ws.close(4403, 'removed')
+      } catch {
+        // already closed
+      }
+    }
+    this.broadcast({ type: 'member_removed', githubId })
+    return { ok: true, value: null }
+  }
+
+  async rotateInvite(adminId: number): Promise<Result<string, 'forbidden'>> {
+    if (!this.isAdmin(adminId)) return { ok: false, error: 'forbidden' }
+    const code = randomId(16)
+    store.setConfig(this.sql, 'invite_code', code)
+    return { ok: true, value: code }
   }
 
   private async socketGone(ws: WebSocket): Promise<void> {
