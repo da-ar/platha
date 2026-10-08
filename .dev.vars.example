@@ -1,0 +1,4 @@
+# Copy to .dev.vars for `npm run dev:worker`. Never commit .dev.vars.
+SETUP_SECRET=choose-a-long-random-string
+GITHUB_ORG=your-org
+SLACK_TEAM_ID=T0123456

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev:web": "vite",
-    "dev:worker": "wrangler dev",
+    "dev:worker": "node -e \"require('fs').mkdirSync('dist/client',{recursive:true})\" && wrangler dev",
     "build": "vite build",
     "test:worker": "vitest run -c vitest.worker.config.ts",
     "test:web": "vitest run -c vitest.web.config.ts",
@@ -37,5 +37,8 @@
     "vite": "^8.3.3",
     "vitest": "~4.1.0",
     "wrangler": "^4.148.0"
+  },
+  "overrides": {
+    "sharp": "^0.35.5"
   }
 }
