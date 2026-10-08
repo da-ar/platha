@@ -4,12 +4,19 @@ import userEvent from '@testing-library/user-event'
 import { Tile } from '../../../src/web/office/Tile'
 import { member, pr } from '../factories'
 
-test('tile shows 3 pills then +2 more', () => {
-  render(<Tile member={member()} prs={[1, 2, 3, 4, 5].map((n) => pr(n))} onOpen={() => {}} />)
-  expect(screen.getByText('#1 in review')).toBeInTheDocument()
-  expect(screen.getByText('#3 in review')).toBeInTheDocument()
-  expect(screen.queryByText('#4 in review')).toBeNull()
-  expect(screen.getByText('+2 more')).toBeInTheDocument()
+test('tile summarises open PRs instead of listing them', () => {
+  const prs = [pr(1), pr(2, { ci: 'FAILURE' }), pr(3, { mergeable: 'CONFLICTING' }), pr(4), pr(5)]
+  render(<Tile member={member()} prs={prs} reviewRequestedUrls={new Set([prs[0].url, prs[3].url])} onOpen={() => {}} />)
+  expect(screen.getByText('5 open PRs')).toBeInTheDocument()
+  expect(screen.getByText('2 waiting on you')).toHaveClass('tile__waiting')
+  expect(screen.getByText('1 failing CI')).toBeInTheDocument()
+  expect(screen.getByText('1 conflict')).toBeInTheDocument()
+  expect(screen.queryByText(/#1/)).toBeNull()
+})
+
+test('no open PRs and nothing pending', () => {
+  render(<Tile member={member()} prs={[]} onOpen={() => {}} />)
+  expect(screen.getByText('No open PRs')).toBeInTheDocument()
 })
 
 test('offline tile is greyed and labelled Offline; focusing shows Focusing', () => {

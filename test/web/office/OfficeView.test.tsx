@@ -59,11 +59,21 @@ describe('tiles', () => {
   })
 
   test('my tile uses my PRs, teammates use theirs', () => {
-    setGitHub({ snapshot: snapshot({ mine: [pr(10)], byTeammate: { carol: [pr(20, { isDraft: true })], bob: 'error' } }) })
+    setGitHub({ snapshot: snapshot({ mine: [pr(10)], byTeammate: { carol: [pr(20, { isDraft: true }), pr(21)], bob: 'error' } }) })
     render(<OfficeView me={me} config={config} />)
-    expect(within(screen.getByRole('button', { name: 'Alice, Online' })).getByText('#10 in review')).toBeInTheDocument()
-    expect(within(screen.getByRole('button', { name: 'Carol, Online' })).getByText('#20 draft')).toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: 'Alice, Online' })).getByText('1 open PR')).toBeInTheDocument()
+    const carol = within(screen.getByRole('button', { name: 'Carol, Online' }))
+    expect(carol.getByText('2 open PRs')).toBeInTheDocument()
+    expect(carol.getByText('1 draft')).toBeInTheDocument()
     expect(within(screen.getByRole('button', { name: 'Bob, Offline' })).getByText("Couldn't load")).toBeInTheDocument()
+  })
+
+  test("a teammate's PR you're asked to review shows as waiting on you", () => {
+    const carols = pr(30, { author: 'carol' })
+    setGitHub({ snapshot: snapshot({ reviewRequested: [carols], mine: [pr(10)], byTeammate: { carol: [carols] } }) })
+    render(<OfficeView me={me} config={config} />)
+    expect(within(screen.getByRole('button', { name: 'Carol, Online' })).getByText('1 waiting on you')).toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: 'Alice, Online' })).queryByText(/waiting on you/)).toBeNull()
   })
 })
 

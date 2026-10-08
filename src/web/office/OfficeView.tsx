@@ -57,6 +57,7 @@ export function OfficeView({ me, config }: { me: Member; config: OfficeConfig })
 
   const github = useGitHub({ org: config.org, teammates })
   const items = useMemo(() => (github.snapshot ? computeAttention(github.snapshot, self.login, seen) : []), [github.snapshot, self.login, seen])
+  const reviewRequestedUrls = useMemo(() => new Set(github.snapshot?.reviewRequested.map((pr) => pr.url) ?? []), [github.snapshot])
 
   function openItem(item: AttentionItem) {
     openTab(item.url)
@@ -119,7 +120,14 @@ export function OfficeView({ me, config }: { me: Member; config: OfficeConfig })
         <section className="office__team" aria-label="Team">
           <div className="tiles">
             {members.map((m) => (
-              <Tile key={m.githubId} member={m} isMe={m.githubId === me.githubId} prs={prsFor(m)} onOpen={() => setSelected(m.githubId)} />
+              <Tile
+                key={m.githubId}
+                member={m}
+                isMe={m.githubId === me.githubId}
+                prs={prsFor(m)}
+                reviewRequestedUrls={reviewRequestedUrls}
+                onOpen={() => setSelected(m.githubId)}
+              />
             ))}
           </div>
         </section>
