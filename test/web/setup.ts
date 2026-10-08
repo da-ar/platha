@@ -5,3 +5,4 @@ afterEach(() => {
   cleanup()
   localStorage.clear()
 })
+import '@testing-library/jest-dom/vitest'
