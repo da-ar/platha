@@ -17,14 +17,18 @@ describe('buildRequests', () => {
       expect(r.query.match(/search\(/g)).toHaveLength(1)
       expect(r.query).toContain('first: 30')
     }
-    expect(reqs[0].query).toContain('"is:pr is:open review-requested:@me org:acme"')
-    expect(reqs[1].query).toContain('"is:pr is:open author:@me org:acme"')
-    expect(reqs[3].query).toMatch(/t0: search\(type: ISSUE, first: 30, query: "is:pr is:open author:bob org:acme"\)/)
+    expect(reqs[0].query).toContain('"is:pr is:open review-requested:@me org:acme sort:updated-desc"')
+    expect(reqs[1].query).toContain('"is:pr is:open author:@me org:acme sort:updated-desc"')
+    expect(reqs[3].query).toMatch(/t0: search\(type: ISSUE, first: 30, query: "is:pr is:open author:bob org:acme sort:updated-desc"\)/)
     expect(reqs[4].query).toContain('author:carol')
   })
 
+  test('every search asks for the most recently updated first', () => {
+    for (const r of buildRequests('acme', ['bob'], NOW)) expect(r.query).toContain('sort:updated-desc"')
+  })
+
   test('mentions limited to last 14 days', () => {
-    expect(buildRequests('acme', [], NOW)[2].query).toContain('"is:open mentions:@me org:acme updated:>=2026-09-24"')
+    expect(buildRequests('acme', [], NOW)[2].query).toContain('"is:open mentions:@me org:acme updated:>=2026-09-24 sort:updated-desc"')
   })
 
   test('invalid login is skipped, keeping teammate positions', () => {

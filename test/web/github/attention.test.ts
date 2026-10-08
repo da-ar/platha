@@ -96,12 +96,24 @@ describe('combining', () => {
     expect(kinds(snap({ mine: [p], mentions: [m] }))).toEqual([['mentioned', 16]])
   })
 
-  test('sorted by rule order then most recent first', () => {
+  test('a newer failing build sorts above an older review request', () => {
+    const s = snap({
+      reviewRequested: [pr(30, { updatedAt: '2026-10-01T09:00:00Z' })],
+      mine: [pr(31, { ci: 'FAILURE', updatedAt: '2026-10-08T09:00:00Z' })],
+    })
+    expect(kinds(s)).toEqual([
+      ['ci_failing', 31],
+      ['review_requested', 30],
+    ])
+  })
+
+  test('sorted newest first regardless of rule', () => {
     const s = snap({
       reviewRequested: [pr(20, { updatedAt: '2026-10-07T01:00:00Z' }), pr(21, { updatedAt: '2026-10-07T05:00:00Z' })],
       mine: [pr(22, { ci: 'FAILURE' })],
       mentions: [mention(23)],
     })
-    expect(kinds(s).map((k) => k[1])).toEqual([21, 20, 23, 22])
+    // 22 and 23 share 10:00, so rule order breaks the tie (mentioned before ci_failing).
+    expect(kinds(s).map((k) => k[1])).toEqual([23, 22, 21, 20])
   })
 })

@@ -220,7 +220,7 @@ Pure functions in `src/web/github/attention.ts`, one per rule:
 | **h** Mentioned | Open issue/PR from the mentions search, updated after your last-seen time for it | You open the item (marks seen) |
 | **i** CI failing | Your open PR with CI rollup `FAILURE` or `ERROR` | CI no longer failing |
 
-"Last seen" timestamps are stored per item in `localStorage`. Items are sorted e → i, then by most recent update.
+"Last seen" timestamps are stored per item in `localStorage`. Items are sorted newest activity first (rule order e → i only breaks ties; it also decides which rule an item shows under when several match). Every search uses `sort:updated-desc`, so each capped page of 30 holds the most recently updated results.
 
 ## 7. Chat and calls
 

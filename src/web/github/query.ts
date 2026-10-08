@@ -25,8 +25,12 @@ export interface SearchRequest {
   query: string
 }
 
+/** Newest first, so a capped page holds the most recent results rather than GitHub's "best match". */
+const SORT = 'sort:updated-desc'
+
 function request(alias: string, search: string, selection: string): SearchRequest {
-  return { alias, query: `query { ${alias}: search(type: ISSUE, first: ${PAGE_SIZE}, query: ${JSON.stringify(search)}) { nodes { ${selection} } } }` }
+  const q = JSON.stringify(`${search} ${SORT}`)
+  return { alias, query: `query { ${alias}: search(type: ISSUE, first: ${PAGE_SIZE}, query: ${q}) { nodes { ${selection} } } }` }
 }
 
 /**
