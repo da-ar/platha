@@ -12,6 +12,7 @@ export function member(over: Partial<Member> = {}): Member {
     status: 'available',
     statusText: null,
     online: true,
+    meetingUntil: null,
     ...over,
   }
 }

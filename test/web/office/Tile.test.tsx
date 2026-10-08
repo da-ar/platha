@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Tile } from '../../../src/web/office/Tile'
 import { member, pr } from '../factories'
+import { clockTime } from '../../../src/web/office/presence'
 
 test('tile summarises open PRs instead of listing them', () => {
   const prs = [pr(1), pr(2, { ci: 'FAILURE' }), pr(3, { mergeable: 'CONFLICTING' }), pr(4), pr(5)]
@@ -48,4 +49,12 @@ test('clicking opens', async () => {
   render(<Tile member={member()} prs={[]} onOpen={onOpen} />)
   await userEvent.click(screen.getByRole('button'))
   expect(onOpen).toHaveBeenCalled()
+})
+
+test('a member in a meeting shows until when, with the meeting dot', () => {
+  const until = Date.now() + 30 * 60_000
+  render(<Tile member={member({ meetingUntil: until })} prs={[]} onOpen={() => {}} />)
+  const tile = screen.getByRole('button', { name: 'Alice, In a meeting' })
+  expect(tile).toHaveTextContent(`In a meeting · until ${clockTime(until)}`)
+  expect(tile.querySelector('.dot--meeting')).not.toBeNull()
 })

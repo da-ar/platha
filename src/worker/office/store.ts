@@ -1,4 +1,5 @@
 import type { Member, Role, Status } from '../../shared/types'
+import type { BusyBlock } from '../calendar'
 import type { GitHubIdentity } from '../github'
 
 export function migrate(sql: SqlStorage): void {
@@ -29,6 +30,18 @@ export function migrate(sql: SqlStorage): void {
   // Added after launch: each member's own Meet room. Private to them; not part of Member.
   const columns = sql.exec<{ name: string }>('PRAGMA table_info(members)').toArray().map((c) => c.name)
   if (!columns.includes('meet_url')) sql.exec('ALTER TABLE members ADD COLUMN meet_url TEXT')
+  // Public GitHub email, used to find their public calendar. Private; not part of Member.
+  if (!columns.includes('email')) sql.exec('ALTER TABLE members ADD COLUMN email TEXT')
+  sql.exec(`CREATE TABLE IF NOT EXISTS calendar_sync (
+    github_id INTEGER PRIMARY KEY,
+    email TEXT,
+    state TEXT NOT NULL,
+    busy_json TEXT NOT NULL DEFAULT '[]',
+    fetched_at INTEGER,
+    next_at INTEGER,
+    failures INTEGER NOT NULL DEFAULT 0,
+    meeting_until INTEGER
+  )`)
 }
 
 type MemberRow = {
@@ -54,6 +67,7 @@ export function rowToMember(row: MemberRow): Member {
     status: row.status,
     statusText: row.status_text,
     online: false,
+    meetingUntil: null,
   }
 }
 
@@ -73,12 +87,13 @@ export function hasAdmin(sql: SqlStorage): boolean {
 /** Inserts the member, or refreshes login/name/avatar if the GitHub id is known. An existing role is kept. */
 export function upsertMember(sql: SqlStorage, identity: GitHubIdentity, role: Role, now: number): void {
   sql.exec(
-    `INSERT INTO members (github_id, login, name, avatar_url, role, joined_at) VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT (github_id) DO UPDATE SET login = excluded.login, name = excluded.name, avatar_url = excluded.avatar_url`,
+    `INSERT INTO members (github_id, login, name, avatar_url, email, role, joined_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (github_id) DO UPDATE SET login = excluded.login, name = excluded.name, avatar_url = excluded.avatar_url, email = excluded.email`,
     identity.id,
     identity.login,
     identity.name,
     identity.avatarUrl,
+    identity.email ?? null,
     role,
     now,
   )
@@ -86,10 +101,11 @@ export function upsertMember(sql: SqlStorage, identity: GitHubIdentity, role: Ro
 
 export function refreshProfile(sql: SqlStorage, identity: GitHubIdentity): boolean {
   const cursor = sql.exec(
-    'UPDATE members SET login = ?, name = ?, avatar_url = ? WHERE github_id = ?',
+    'UPDATE members SET login = ?, name = ?, avatar_url = ?, email = ? WHERE github_id = ?',
     identity.login,
     identity.name,
     identity.avatarUrl,
+    identity.email ?? null,
     identity.id,
   )
   return cursor.rowsWritten > 0
@@ -115,7 +131,85 @@ export function getMeetUrl(sql: SqlStorage, githubId: number): string | null {
 export function deleteMember(sql: SqlStorage, githubId: number): void {
   sql.exec('DELETE FROM sessions WHERE github_id = ?', githubId)
   sql.exec('DELETE FROM pending_offline WHERE github_id = ?', githubId)
+  sql.exec('DELETE FROM calendar_sync WHERE github_id = ?', githubId)
   sql.exec('DELETE FROM members WHERE github_id = ?', githubId)
+}
+
+export function getEmail(sql: SqlStorage, githubId: number): string | null {
+  const row = sql.exec<{ email: string | null }>('SELECT email FROM members WHERE github_id = ?', githubId).toArray()[0]
+  return row?.email ?? null
+}
+
+// --- calendar sync ---------------------------------------------------------
+
+export type CalendarState = 'pending' | 'ok' | 'error' | 'unavailable' | 'no_email'
+
+export interface CalendarSyncRow {
+  githubId: number
+  email: string | null
+  state: CalendarState
+  busy: BusyBlock[]
+  fetchedAt: number | null
+  nextAt: number | null
+  failures: number
+  meetingUntil: number | null
+}
+
+type SyncRow = {
+  github_id: number
+  email: string | null
+  state: CalendarState
+  busy_json: string
+  fetched_at: number | null
+  next_at: number | null
+  failures: number
+  meeting_until: number | null
+}
+
+function toSync(r: SyncRow): CalendarSyncRow {
+  return {
+    githubId: r.github_id,
+    email: r.email,
+    state: r.state,
+    busy: JSON.parse(r.busy_json) as BusyBlock[],
+    fetchedAt: r.fetched_at,
+    nextAt: r.next_at,
+    failures: r.failures,
+    meetingUntil: r.meeting_until,
+  }
+}
+
+export function getCalendarSync(sql: SqlStorage, githubId: number): CalendarSyncRow | null {
+  const row = sql.exec<SyncRow>('SELECT * FROM calendar_sync WHERE github_id = ?', githubId).toArray()[0]
+  return row ? toSync(row) : null
+}
+
+export function listCalendarSync(sql: SqlStorage): CalendarSyncRow[] {
+  return sql.exec<SyncRow>('SELECT * FROM calendar_sync').toArray().map(toSync)
+}
+
+export function dueCalendars(sql: SqlStorage, now: number, limit: number): CalendarSyncRow[] {
+  return sql
+    .exec<SyncRow>('SELECT * FROM calendar_sync WHERE next_at IS NOT NULL AND next_at <= ? ORDER BY next_at LIMIT ?', now, limit)
+    .toArray()
+    .map(toSync)
+}
+
+export function putCalendarSync(sql: SqlStorage, row: CalendarSyncRow): void {
+  sql.exec(
+    `INSERT INTO calendar_sync (github_id, email, state, busy_json, fetched_at, next_at, failures, meeting_until)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (github_id) DO UPDATE SET email = excluded.email, state = excluded.state, busy_json = excluded.busy_json,
+       fetched_at = excluded.fetched_at, next_at = excluded.next_at, failures = excluded.failures, meeting_until = excluded.meeting_until`,
+    row.githubId,
+    row.email,
+    row.state,
+    JSON.stringify(row.busy),
+    row.fetchedAt,
+    row.nextAt,
+    row.failures,
+    row.meetingUntil,
+  )
 }
 
 export function insertSession(sql: SqlStorage, id: string, githubId: number, now: number, ttlMs: number): void {

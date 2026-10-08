@@ -3,6 +3,8 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Drawer } from '../../../src/web/office/Drawer'
 import { member, pr } from '../factories'
+import { mockApi } from '../fetch-mock'
+import { clockTime } from '../../../src/web/office/presence'
 
 const bob = member({ githubId: 2, login: 'bob', name: 'Bob', slackUserId: 'U01ABCDEF' })
 const base = { prs: [] as never[], isMe: false, slackTeamId: 'T0000000', onClose: () => {}, onCall: () => {} }
@@ -65,4 +67,28 @@ test('escape closes', async () => {
   render(<Drawer {...base} member={bob} onClose={onClose} />)
   await userEvent.keyboard('{Escape}')
   expect(onClose).toHaveBeenCalled()
+})
+
+test('tabs: Pull requests by default, Calendar on click or arrow key', async () => {
+  const calls = mockApi(() => ({ status: 200, body: { state: 'no_email', busy: [], fetchedAt: null } }))
+  render(<Drawer {...base} member={bob} prs={[pr(1, { title: 'One' })]} />)
+  const prsTab = screen.getByRole('tab', { name: 'Pull requests' })
+  const calTab = screen.getByRole('tab', { name: 'Calendar' })
+  expect(prsTab).toHaveAttribute('aria-selected', 'true')
+  expect(screen.getByRole('tabpanel')).toHaveTextContent('#1 One')
+  expect(calls).toHaveLength(0)
+  await userEvent.click(calTab)
+  expect(calTab).toHaveAttribute('aria-selected', 'true')
+  expect(await screen.findByText('Calendar not shared.')).toBeInTheDocument()
+  expect(calls[0].path).toBe('/api/calendar/2')
+  calTab.focus()
+  await userEvent.keyboard('{ArrowLeft}')
+  expect(prsTab).toHaveAttribute('aria-selected', 'true')
+  expect(prsTab).toHaveFocus()
+})
+
+test('the header shows when a meeting ends', () => {
+  const until = Date.now() + 20 * 60_000
+  render(<Drawer {...base} member={{ ...bob, meetingUntil: until }} />)
+  expect(screen.getByText(new RegExp(`In a meeting · until ${clockTime(until)}`))).toBeInTheDocument()
 })

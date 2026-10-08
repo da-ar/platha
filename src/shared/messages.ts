@@ -31,6 +31,7 @@ const member = z.object({
   status,
   statusText: z.string().nullable(),
   online: z.boolean(),
+  meetingUntil: z.number().nullable().default(null),
 })
 
 export const ServerMessageSchema = z.discriminatedUnion('type', [

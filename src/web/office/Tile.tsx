@@ -1,7 +1,7 @@
 import { displayName, type Member } from '../../shared/types'
 import type { PullRequest } from '../github/types'
 import { Avatar } from './Avatar'
-import { presenceLabel } from './presence'
+import { presenceLabel, presenceText, presenceTone } from './presence'
 import { GLYPHS } from './PrStatusIcons'
 import { openLabel, summarizePrs, summaryLines, type SummaryKind } from './prSummary'
 
@@ -54,7 +54,7 @@ export function Tile({
 }) {
   const name = displayName(member)
   const label = presenceLabel(member)
-  const tone = label.toLowerCase()
+  const tone = presenceTone(label)
   return (
     <button type="button" className={`tile${member.online ? '' : ' tile--offline'}`} aria-label={`${name}, ${label}`} onClick={onOpen}>
       <span className="tile__head">
@@ -67,7 +67,7 @@ export function Tile({
             {name}
             {isMe && <span className="tile__you"> (you)</span>}
           </span>
-          <span className={`tile__status tile__status--${tone}`}>{label}</span>
+          <span className={`tile__status tile__status--${tone}`}>{presenceText(member)}</span>
           {member.online && member.statusText && <span className="tile__note">{member.statusText}</span>}
         </span>
       </span>

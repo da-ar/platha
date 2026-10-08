@@ -238,6 +238,12 @@ The Chat button opens `slack://user?team=<SLACK_TEAM_ID>&id=<slack_user_id>`. If
 
 Knocks are never persisted. The Call button is disabled for offline teammates.
 
+**Calendar busy times (optional).** A member's public GitHub email (from `GET /user`, refreshed at each sign-in, stored privately as `members.email`) locates their Google Calendar's public iCal feed. People share it publicly as free/busy only.
+- **Sync:** the Office syncs feeds on its alarm while anyone is connected, at most 3 per run: every 5 min when OK; on errors 5→10→20→40 min, then hourly, ±20% jitter; 6 h when not public; never without an email.
+- **Data kept:** only busy start/end times (now−12 h…now+36 h). After an error, the last good times are shown for up to 2 h.
+- **Status:** `Member.meetingUntil` drives the "In a meeting · until HH:MM" status (precedence Offline > Away > In a meeting > Focusing > Online).
+- **Calendar tab:** the drawer's Calendar tab shows today's busy blocks with a now line, served from the cache by `GET /api/calendar/:githubId`.
+
 **Personal Meet room (optional).** A member can save one Meet link in Settings, stored as `members.meet_url`. With a room saved, **Call** skips steps 1–2: it opens the room for the caller and sends the knock straight away with that link. The room is private to its owner: it's returned only by their own `/api/me`, and is sent to someone else only inside a knock to them. It's never part of `Member` or any broadcast.
 
 ## 8. Security

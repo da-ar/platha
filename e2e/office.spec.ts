@@ -31,11 +31,12 @@ test('two teammates see each other and can knock', async ({ browser }) => {
   await bob.getByLabel('GitHub token').fill('bob-token')
   await bob.getByRole('button', { name: 'Join' }).click()
 
-  await expect(alice.getByRole('button', { name: 'bob, Online' })).toBeVisible()
+  const bobHere = /^bob, (Online|In a meeting)$/
+  await expect(alice.getByRole('button', { name: bobHere })).toBeVisible()
   await expect(bob.getByRole('button', { name: 'alice, Online' })).toBeVisible()
   await expect(alice.getByRole('heading', { name: /Needs you · \d+/ })).toBeVisible()
 
-  await alice.getByRole('button', { name: 'bob, Online' }).click()
+  await alice.getByRole('button', { name: bobHere }).click()
   await alice.getByRole('button', { name: 'Call', exact: true }).click()
   await expect(alice.getByRole('link', { name: 'Open Google Meet' })).toBeVisible()
   await alice.getByLabel('Meet link').fill('https://meet.google.com/abc-defg-hij')
@@ -63,7 +64,7 @@ test('two teammates see each other and can knock', async ({ browser }) => {
   await alice.getByRole('heading', { name: 'Meet room' }).locator('..').getByRole('button', { name: 'Save' }).click()
   await expect(alice.getByText(/Call now rings straight away/)).toBeVisible()
   await alice.goto('/')
-  await alice.getByRole('button', { name: 'bob, Online' }).click()
+  await alice.getByRole('button', { name: bobHere }).click()
   await alice.getByRole('button', { name: 'Call', exact: true }).click()
   await expect(alice.getByText('Ringing bob…')).toBeVisible()
   await expect(alice.getByLabel('Meet link')).toHaveCount(0)
@@ -73,6 +74,19 @@ test('two teammates see each other and can knock', async ({ browser }) => {
   await expect(alice.getByText('bob is joining the call')).toBeVisible()
   await alice.getByRole('dialog', { name: 'Call bob' }).getByRole('button', { name: 'Close' }).click()
   await alice.keyboard.press('Escape')
+  // Bob's public calendar has a meeting now: the office syncs it and shows him in a meeting.
+  await expect(alice.getByRole('button', { name: 'bob, In a meeting' })).toBeVisible({ timeout: 60_000 })
+  await alice.getByRole('button', { name: 'bob, In a meeting' }).click()
+  await alice.getByRole('tab', { name: 'Calendar' }).click()
+  await expect(alice.locator('.cal__busy').first()).toHaveAttribute('title', /^Busy /)
+  await expect(alice.getByRole('img', { name: /^Now, / })).toBeVisible()
+  await alice.keyboard.press('Escape')
+  // Alice has no public email: her own calendar tab says so.
+  await alice.getByRole('button', { name: /^alice, / }).click()
+  await alice.getByRole('tab', { name: 'Calendar' }).click()
+  await expect(alice.getByText('Calendar not shared.')).toBeVisible()
+  await alice.keyboard.press('Escape')
+
   await bob.close()
   await expect(alice.getByRole('button', { name: 'bob, Offline' })).toBeVisible({ timeout: 40_000 })
 })

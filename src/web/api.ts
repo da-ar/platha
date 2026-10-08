@@ -7,10 +7,27 @@ export interface OfficeConfig {
   slackTeamId: string
 }
 
+export type CalendarState = 'pending' | 'ok' | 'error' | 'unavailable' | 'no_email'
+
+export interface BusyBlock {
+  start: number
+  end: number
+  allDay: boolean
+}
+
+export interface CalendarView {
+  state: CalendarState
+  busy: BusyBlock[]
+  fetchedAt: number | null
+}
+
 export interface Me {
   member: Member
   /** Your own saved Meet room, if any. Private to you. */
   meetUrl: string | null
+  /** Your public GitHub email, used to find your calendar. Private to you. */
+  email: string | null
+  calendarState: CalendarState
   config: OfficeConfig
 }
 
@@ -42,6 +59,7 @@ export interface ProfilePatch {
   meetUrl?: string | null
 }
 export const updateProfile = (patch: ProfilePatch) => call<{ member: Member; meetUrl: string | null }>('PATCH', '/api/profile', patch)
+export const getCalendar = (githubId: number) => call<CalendarView>('GET', `/api/calendar/${githubId}`)
 export const getInvite = () => call<{ inviteUrl: string }>('GET', '/api/admin/invite')
 export const rotateInvite = () => call<{ inviteUrl: string }>('POST', '/api/admin/invite/rotate')
 export const removeMember = (githubId: number) => call<void>('DELETE', `/api/admin/members/${githubId}`)

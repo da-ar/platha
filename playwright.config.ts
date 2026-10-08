@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const vars = ['GITHUB_API_BASE:http://localhost:8790', 'SETUP_SECRET:e2e-secret', 'GITHUB_ORG:acme', 'SLACK_TEAM_ID:T0000000']
+const vars = ['GITHUB_API_BASE:http://localhost:8790', 'CALENDAR_ICAL_BASE:http://localhost:8790/calendar', 'SETUP_SECRET:e2e-secret', 'GITHUB_ORG:acme', 'SLACK_TEAM_ID:T0000000']
 
 export default defineConfig({
   testDir: 'e2e',

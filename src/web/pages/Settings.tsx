@@ -1,13 +1,23 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { displayName, type Member } from '../../shared/types'
-import { getInvite, logout, removeMember, rotateInvite, updateProfile } from '../api'
+import { getInvite, logout, removeMember, rotateInvite, updateProfile, type CalendarState } from '../api'
 import { go } from '../navigate'
 import { Avatar } from '../office/Avatar'
 import { useOffice } from '../office/useOffice'
 import { clearToken, setToken } from '../token'
 import { TokenField } from './TokenField'
 
-export function Settings({ me, meetUrl = null }: { me: Member; meetUrl?: string | null }) {
+export function Settings({
+  me,
+  meetUrl = null,
+  email = null,
+  calendarState = 'no_email',
+}: {
+  me: Member
+  meetUrl?: string | null
+  email?: string | null
+  calendarState?: CalendarState
+}) {
   const { state } = useOffice()
   const self = state.members[me.githubId] ?? me
   return (
@@ -20,6 +30,7 @@ export function Settings({ me, meetUrl = null }: { me: Member; meetUrl?: string 
       <h1>Settings</h1>
       <SlackSection me={self} />
       <MeetRoomSection meetUrl={meetUrl} />
+      <CalendarSection email={email} state={calendarState} />
       <TokenSection />
       {self.role === 'admin' && <AdminSection me={self} members={Object.values(state.members)} />}
       <section className="panel">
@@ -126,6 +137,52 @@ function MeetRoomSection({ meetUrl }: { meetUrl: string | null }) {
         <p role={msg.ok ? 'status' : 'alert'} className={msg.ok ? 'ok' : 'error'}>
           {msg.text}
         </p>
+      )}
+    </section>
+  )
+}
+
+const CALENDAR_STATE: Record<CalendarState, string> = {
+  pending: 'Checking your calendar…',
+  ok: 'Your busy times are showing.',
+  error: "Google Calendar didn't respond — Platha will keep retrying.",
+  unavailable: "Your calendar isn't public yet — follow the steps below.",
+  no_email: '',
+}
+
+/** Read-only: the calendar comes from your public GitHub email. */
+function CalendarSection({ email, state }: { email: string | null; state: CalendarState }) {
+  return (
+    <section className="panel">
+      <h2>Calendar</h2>
+      {email ? (
+        <>
+          <p>
+            Using your public GitHub email: <strong>{email}</strong>
+          </p>
+          <p className={state === 'ok' ? 'ok' : state === 'error' || state === 'unavailable' ? 'error' : 'muted'}>{CALENDAR_STATE[state]}</p>
+          <ol className="steps">
+            <li>Open Google Calendar → Settings → your calendar → Access permissions.</li>
+            <li>
+              Tick <strong>Make available to public</strong> and choose <strong>See only free/busy (hide details)</strong>.
+            </li>
+          </ol>
+          <p className="hint">Teammates only ever see when you're busy, never what the meeting is.</p>
+        </>
+      ) : (
+        <>
+          <p className="muted">Calendar not shared: your GitHub profile has no public email.</p>
+          <ol className="steps">
+            <li>
+              On GitHub, open{' '}
+              <a href="https://github.com/settings/profile" target="_blank" rel="noopener noreferrer">
+                Settings → Public profile
+              </a>{' '}
+              and set <strong>Public email</strong> to your Google work address.
+            </li>
+            <li>Sign out of Platha and sign back in.</li>
+          </ol>
+        </>
       )}
     </section>
   )

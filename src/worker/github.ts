@@ -1,11 +1,14 @@
 import { z } from 'zod'
 import type { Result } from '../shared/types'
+import { normalizeEmail } from './calendar'
 
 export interface GitHubIdentity {
   id: number
   login: string
   name: string | null
   avatarUrl: string
+  /** Public profile email, used to find their public Google Calendar. */
+  email?: string | null
 }
 
 const UserSchema = z.object({
@@ -13,6 +16,7 @@ const UserSchema = z.object({
   login: z.string().min(1),
   name: z.string().nullable().optional(),
   avatar_url: z.string(),
+  email: z.string().nullable().optional(),
 })
 
 /** A pasted token must be a single run of printable ASCII; anything else can't be a GitHub token. */
@@ -40,5 +44,5 @@ export async function fetchGitHubUser(apiBase: string, token: string): Promise<R
   const parsed = UserSchema.safeParse(await res.json().catch(() => null))
   if (!parsed.success) return { ok: false, error: 'github_error' }
   const u = parsed.data
-  return { ok: true, value: { id: u.id, login: u.login, name: u.name ?? null, avatarUrl: u.avatar_url } }
+  return { ok: true, value: { id: u.id, login: u.login, name: u.name ?? null, avatarUrl: u.avatar_url, email: normalizeEmail(u.email) } }
 }
