@@ -256,7 +256,9 @@ a.hint {
 }
 
 .status-picker input {
-  flex: 1;
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
 }
 
 /* Banners */
@@ -312,9 +314,22 @@ a.hint {
   }
 }
 
+@media (max-width: 899px) {
+  /* "What needs me?" first on narrow screens, above a long list of tiles. */
+  .office__side {
+    order: -1;
+  }
+}
+
 @media (max-width: 600px) {
   .office {
     padding: 16px;
+  }
+
+  .status-picker {
+    order: 3;
+    flex-basis: 100%;
+    max-width: none;
   }
 
   .topbar {
