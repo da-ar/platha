@@ -102,12 +102,15 @@ app.get('/api/me', async (c) => {
   const member = await requireMember(c)
   if (member instanceof Response) return member
   const o = office(c.env)
-  const [meetUrl, email, calendar] = await Promise.all([o.getMeetUrl(member.githubId), o.getEmail(member.githubId), o.getCalendar(member.githubId)])
+  // Extras must never stop the member loading (e.g. while a deploy rolls out to the Office).
+  const [meetUrl, email, calendar] = await Promise.allSettled([o.getMeetUrl(member.githubId), o.getEmail(member.githubId), o.getCalendar(member.githubId)])
+  for (const r of [meetUrl, email, calendar]) if (r.status === 'rejected') console.error('api/me extra failed:', String(r.reason))
+  const value = <T,>(r: PromiseSettledResult<T>, fallback: T): T => (r.status === 'fulfilled' ? r.value : fallback)
   return c.json({
     member,
-    meetUrl,
-    email,
-    calendarState: calendar?.state ?? 'no_email',
+    meetUrl: value(meetUrl, null),
+    email: value(email, null),
+    calendarState: value(calendar, null)?.state ?? 'no_email',
     config: { org: c.env.GITHUB_ORG, slackTeamId: c.env.SLACK_TEAM_ID },
   })
 })

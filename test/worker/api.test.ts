@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'vitest'
 import { reset, runInDurableObject } from 'cloudflare:test'
+import type { Office } from '../../src/worker/office/Office'
 import { stubGitHub } from './github-stub'
 import { mainOffice } from './helpers'
 import { cookieFrom, joinAs, post, request, setupAlice } from './http'
@@ -145,5 +146,23 @@ describe('session', () => {
       return tables.map((t) => state.storage.sql.exec(`SELECT * FROM "${t.name}"`).toArray())
     })
     expect(JSON.stringify(dump)).not.toContain('tok-')
+  })
+})
+
+describe('me resilience', () => {
+  test('me still returns the member if an extra lookup fails', async () => {
+    stubGitHub()
+    const { cookie } = await setupAlice()
+    await runInDurableObject(mainOffice(), (o: Office) => {
+      o.getCalendar = async () => {
+        throw new Error('getCalendar is not a function on this version')
+      }
+    })
+    const res = await request('GET', '/api/me', { cookie })
+    expect(res.status).toBe(200)
+    const body = await res.json<{ member: { login: string }; calendarState: string; meetUrl: null }>()
+    expect(body.member.login).toBe('alice')
+    expect(body.calendarState).toBe('no_email')
+    expect(body.meetUrl).toBeNull()
   })
 })
