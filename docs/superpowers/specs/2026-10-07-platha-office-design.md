@@ -195,13 +195,13 @@ The setup guide asks for a **fine-grained, read-only** token scoped to the org (
 
 ### Polling
 
-- One GraphQL request per cycle, using aliased `search` queries:
+- One small GraphQL request per `search` (up to 30 results each), at most 4 in flight, each retried once on a gateway error or timeout. A single combined query timed out on GitHub (502) for a real team. The searches are:
   - `is:pr is:open review-requested:@me org:<ORG>`
   - `is:pr is:open author:@me org:<ORG>`
   - `is:open mentions:@me org:<ORG> updated:>=<14 days ago>`
   - for each teammate: `is:pr is:open author:<login> org:<ORG>`
 - Each PR fetches: number, title, url, repo, isDraft, reviewDecision, mergeable, updatedAt, latest status-check rollup state, and the latest comment/review author + timestamp.
-- Every **60 s** while the tab is visible; paused when hidden; immediate refresh when it becomes visible again. At 11 teammates this is well under the 5,000 points/hour limit.
+- Every **60 s** while the tab is visible; paused when hidden; immediate refresh when it becomes visible again. At 11 teammates that's 14 requests a minute, well under the 5,000 points/hour limit. If one teammate's search fails, only their tile shows "Couldn't load".
 
 ### Teammate tile and drawer
 
