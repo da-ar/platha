@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { me, type Me } from './api'
 import { Join } from './pages/Join'
 import { Login } from './pages/Login'
+import { Settings } from './pages/Settings'
 import { Setup } from './pages/Setup'
 import { OfficeView } from './office/OfficeView'
 
@@ -19,10 +20,10 @@ export function App() {
   const r = route(window.location.pathname)
   if (r.page === 'setup') return <Setup />
   if (r.page === 'join') return <Join code={r.code} />
-  return <SignedIn />
+  return <SignedIn page={r.page} />
 }
 
-function SignedIn() {
+function SignedIn({ page }: { page: 'settings' | 'office' }) {
   const [state, setState] = useState<{ status: 'loading' } | { status: 'out' } | { status: 'in'; data: Me }>({ status: 'loading' })
 
   useEffect(() => {
@@ -31,5 +32,6 @@ function SignedIn() {
 
   if (state.status === 'loading') return null
   if (state.status === 'out') return <Login />
+  if (page === 'settings') return <Settings me={state.data.member} />
   return <OfficeView me={state.data.member} config={state.data.config} />
 }
