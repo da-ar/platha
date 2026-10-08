@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "platha",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/ws"]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "OFFICE", "class_name": "Office" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Office"] }],
+  "vars": {
+    // Your GitHub organisation login, e.g. "acme".
+    "GITHUB_ORG": "",
+    // Your Slack workspace ID (starts with T), see docs/SETUP.md.
+    "SLACK_TEAM_ID": "",
+    "GITHUB_API_BASE": "https://api.github.com"
+  }
+}
