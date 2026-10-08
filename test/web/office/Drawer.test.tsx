@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Drawer } from '../../../src/web/office/Drawer'
 import { member, pr } from '../factories'
@@ -33,9 +33,27 @@ test('lists every open PR with its state and link', () => {
   const prs = [pr(1, { title: 'One', isDraft: true }), pr(2, { title: 'Two', ci: 'FAILURE', reviewDecision: 'APPROVED' })]
   render(<Drawer {...base} member={bob} prs={prs} />)
   expect(screen.getByRole('link', { name: /#1 One/ })).toHaveAttribute('href', 'https://github.com/acme/api/pull/1')
-  expect(screen.getByRole('link', { name: /#2 Two/ })).toHaveTextContent('CI failing')
-  expect(screen.getByRole('link', { name: /#2 Two/ })).toHaveTextContent('Approved')
-  expect(screen.getByRole('link', { name: /#1 One/ })).toHaveTextContent('Draft')
+  const two = within(screen.getByRole('link', { name: /#2 Two/ }))
+  expect(two.getByRole('img', { name: 'CI failing' })).toHaveAttribute('title', 'CI failing')
+  expect(two.getByRole('img', { name: 'Approved' })).toBeInTheDocument()
+  expect(two.queryByRole('img', { name: 'Draft' })).toBeNull()
+  expect(within(screen.getByRole('link', { name: /#1 One/ })).getByRole('img', { name: 'Draft' })).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: /#2 Two/ })).toHaveTextContent('acme/api')
+})
+
+test('every PR state has an icon with a label', () => {
+  const prs = [
+    pr(1, { ci: 'SUCCESS', mergeable: 'CONFLICTING' }),
+    pr(2, { ci: 'ERROR', reviewDecision: 'CHANGES_REQUESTED' }),
+    pr(3, { ci: 'PENDING' }),
+    pr(4, { ci: 'EXPECTED', reviewDecision: null }),
+  ]
+  render(<Drawer {...base} member={bob} prs={prs} />)
+  const icons = (n: number) => within(screen.getByRole('link', { name: new RegExp(`#${n} `) })).getAllByRole('img').map((i) => i.getAttribute('aria-label'))
+  expect(icons(1)).toEqual(['Review required', 'CI passing', 'Merge conflicts'])
+  expect(icons(2)).toEqual(['Changes requested', 'CI error'])
+  expect(icons(3)).toEqual(['Review required', 'CI running'])
+  expect(icons(4)).toEqual(['CI waiting'])
 })
 
 test('my own drawer has no chat or call', () => {
