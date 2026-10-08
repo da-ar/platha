@@ -119,3 +119,49 @@ test('a change of teammates refetches immediately', async () => {
   expect(fetchMock).toHaveBeenCalledTimes(2)
   expect(fetchMock).toHaveBeenLastCalledWith('tok', 'acme', ['bob', 'carol'])
 })
+
+test('refresh fetches now and restarts the 60s cycle', async () => {
+  const { result } = renderHook(() => useGitHub({ org: 'acme', teammates: [] }))
+  await flush()
+  await advance(30_000)
+  expect(fetchMock).toHaveBeenCalledTimes(1)
+  await act(async () => result.current.refresh())
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  await advance(59_999)
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  await advance(1)
+  expect(fetchMock).toHaveBeenCalledTimes(3)
+})
+
+test('fetching is true while a request is in flight', async () => {
+  let resolve!: (v: { status: number; snapshot: GitHubSnapshot }) => void
+  fetchMock.mockReturnValueOnce(new Promise((r) => (resolve = r)))
+  const { result } = renderHook(() => useGitHub({ org: 'acme', teammates: [] }))
+  await flush()
+  expect(result.current.fetching).toBe(true)
+  await act(async () => resolve({ status: 200, snapshot: empty }))
+  expect(result.current.fetching).toBe(false)
+})
+
+test('a manual refresh during backoff does not reset it', async () => {
+  fetchMock.mockResolvedValue({ status: 429 })
+  const { result } = renderHook(() => useGitHub({ org: 'acme', teammates: [] }))
+  await flush() // fails: next wait 120s
+  expect(fetchMock).toHaveBeenCalledTimes(1)
+  await act(async () => result.current.refresh()) // fails again: next wait 240s, not 120s
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  await advance(239_999)
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  await advance(1)
+  expect(fetchMock).toHaveBeenCalledTimes(3)
+})
+
+test('identical polls keep the same snapshot object', async () => {
+  fetchMock.mockImplementation(async () => ({ status: 200, snapshot: { reviewRequested: [], mine: [], mentions: [], byTeammate: {} } }))
+  const { result } = renderHook(() => useGitHub({ org: 'acme', teammates: [] }))
+  await flush()
+  const first = result.current.snapshot
+  await advance(60_000)
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  expect(result.current.snapshot).toBe(first)
+})

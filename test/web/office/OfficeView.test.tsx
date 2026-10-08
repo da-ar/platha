@@ -37,7 +37,7 @@ function setOffice(over: Partial<Office['state']> = {}) {
 }
 
 function setGitHub(over: Partial<GitHubState> = {}) {
-  github = { snapshot: snapshot(), status: 'ok', updatedAt: Date.now(), refresh: vi.fn(), ...over }
+  github = { snapshot: snapshot(), status: 'ok', updatedAt: Date.now(), fetching: false, refresh: vi.fn(), ...over }
   vi.mocked(useGitHub).mockImplementation(() => github)
 }
 
@@ -106,10 +106,16 @@ describe('banners', () => {
     expect(github.refresh).toHaveBeenCalled()
   })
 
-  test('error shows how stale the data is', () => {
+  test('a failed refresh shows as stale in the panel, with no layout-shifting banner', () => {
     setGitHub({ status: 'error', updatedAt: Date.now() - 4 * 60_000 - 5_000 })
     render(<OfficeView me={me} config={config} />)
-    expect(screen.getByText('Updated 4m ago')).toBeInTheDocument()
+    expect(screen.getByText('Updated 4m ago · retrying')).toHaveClass('needs__updated--stale')
+    expect(document.querySelector('.banner')).toBeNull()
+  })
+
+  test('the panel always shows how fresh the data is', () => {
+    render(<OfficeView me={me} config={config} />)
+    expect(screen.getByText('Updated just now')).not.toHaveClass('needs__updated--stale')
   })
 
   test('reconnecting indicator', () => {
@@ -123,6 +129,35 @@ describe('banners', () => {
     render(<OfficeView me={me} config={config} />)
     expect(screen.getByText("You've been removed from this office.")).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Team' })).toBeNull()
+  })
+})
+
+describe('refresh', () => {
+  test('the refresh button fetches now', async () => {
+    render(<OfficeView me={me} config={config} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+    expect(github.refresh).toHaveBeenCalled()
+  })
+
+  test('disabled while fetching, hidden when the token is rejected', () => {
+    setGitHub({ fetching: true })
+    const { unmount } = render(<OfficeView me={me} config={config} />)
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled()
+    unmount()
+    setGitHub({ snapshot: null, status: 'unauthorized' })
+    render(<OfficeView me={me} config={config} />)
+    expect(screen.queryByRole('button', { name: 'Refresh' })).toBeNull()
+  })
+
+  test('an unchanged item keeps its DOM node across refreshes', () => {
+    const keep = pr(3)
+    setGitHub({ snapshot: snapshot({ reviewRequested: [keep] }) })
+    const { rerender } = render(<OfficeView me={me} config={config} />)
+    const before = screen.getByRole('button', { name: /#3 PR 3/ })
+    setGitHub({ snapshot: snapshot({ reviewRequested: [pr(4, { updatedAt: '2026-10-08T10:00:00Z' }), keep] }) })
+    rerender(<OfficeView me={me} config={config} />)
+    expect(screen.getByRole('button', { name: /#3 PR 3/ })).toBe(before)
+    expect(screen.getByRole('button', { name: /#4 PR 4/ })).toBeInTheDocument()
   })
 })
 

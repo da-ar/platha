@@ -502,6 +502,73 @@ a.hint {
   margin: 0;
 }
 
+.needs__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.needs__head h2 {
+  margin: 0;
+}
+
+.needs__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.needs__updated {
+  font-size: 0.8rem;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.needs__updated--stale {
+  color: var(--amber);
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.icon-btn:disabled {
+  cursor: default;
+}
+
+.icon-btn--busy svg {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn--busy svg {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
 .needs__list {
   list-style: none;
   margin: 0;

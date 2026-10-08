@@ -29,6 +29,10 @@ export function TokenBanner({ onSave }: { onSave: (token: string) => void }) {
   )
 }
 
+/** "Updated just now", "Updated 40s ago" (to the nearest 10 s) or "Updated 3m ago". */
 export function updatedAgo(updatedAt: number, now: number): string {
-  return `Updated ${Math.max(0, Math.floor((now - updatedAt) / 60_000))}m ago`
+  const seconds = Math.max(0, Math.floor((now - updatedAt) / 1000))
+  if (seconds < 10) return 'Updated just now'
+  if (seconds < 60) return `Updated ${Math.floor(seconds / 10) * 10}s ago`
+  return `Updated ${Math.floor(seconds / 60)}m ago`
 }

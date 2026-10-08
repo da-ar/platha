@@ -51,6 +51,12 @@ export const GLYPHS = {
       <path d="M8 4.8V8l2.2 1.4" />
     </>
   ),
+  refresh: (
+    <>
+      <path d="M13 8a5 5 0 1 1-1.46-3.54" />
+      <path d="M13 2.5V5h-2.5" />
+    </>
+  ),
   conflict: (
     <>
       <path d="M8 2.2L14.3 13.5H1.7z" />
