@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { displayName, type Member } from '../../shared/types'
-import { slackDmUrl, slackWebUrl } from '../call/slack'
+import { slackDmUrl } from '../call/slack'
 import type { PullRequest } from '../github/types'
 import { Avatar } from './Avatar'
 import { presenceLabel } from './presence'
@@ -63,11 +63,6 @@ export function Drawer({
             <button className="btn btn--primary" type="button" disabled={!member.online} title={member.online ? undefined : `${name} is offline`} onClick={onCall}>
               Call
             </button>
-            {slackTeamId && (
-              <a className="hint" href={slackWebUrl(slackTeamId)} target="_blank" rel="noopener noreferrer">
-                Open Slack in browser
-              </a>
-            )}
           </div>
         )}
 

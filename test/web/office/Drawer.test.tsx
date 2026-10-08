@@ -10,7 +10,6 @@ const base = { prs: [] as never[], isMe: false, slackTeamId: 'T0000000', onClose
 test('chat deep-links to the Slack DM', () => {
   render(<Drawer {...base} member={bob} />)
   expect(screen.getByRole('link', { name: 'Chat' })).toHaveAttribute('href', 'slack://user?team=T0000000&id=U01ABCDEF')
-  expect(screen.getByRole('link', { name: 'Open Slack in browser' })).toHaveAttribute('href', 'https://app.slack.com/client/T0000000')
 })
 
 test('chat disabled with tooltip when no slack id', () => {
