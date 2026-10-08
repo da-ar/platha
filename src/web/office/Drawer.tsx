@@ -4,20 +4,7 @@ import { slackDmUrl, slackWebUrl } from '../call/slack'
 import type { PullRequest } from '../github/types'
 import { Avatar } from './Avatar'
 import { presenceLabel } from './presence'
-
-const REVIEW: Record<string, string> = {
-  APPROVED: 'Approved',
-  CHANGES_REQUESTED: 'Changes requested',
-  REVIEW_REQUIRED: 'Review required',
-}
-
-const CI: Record<string, string> = {
-  SUCCESS: 'CI passing',
-  FAILURE: 'CI failing',
-  ERROR: 'CI error',
-  PENDING: 'CI running',
-  EXPECTED: 'CI waiting',
-}
+import { PrStatusIcons } from './PrStatusIcons'
 
 export function Drawer({
   member,
@@ -101,11 +88,8 @@ export function Drawer({
                       #{pr.number} {pr.title}
                     </span>
                     <span className="pr-list__meta">
-                      <span>{pr.repo}</span>
-                      <span>{pr.isDraft ? 'Draft' : 'Ready'}</span>
-                      {pr.reviewDecision && <span>{REVIEW[pr.reviewDecision]}</span>}
-                      {pr.ci && <span>{CI[pr.ci]}</span>}
-                      {pr.mergeable === 'CONFLICTING' && <span>Conflicts</span>}
+                      <span className="pr-list__repo">{pr.repo}</span>
+                      <PrStatusIcons pr={pr} />
                     </span>
                   </a>
                 </li>

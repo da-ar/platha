@@ -638,13 +638,13 @@ a.hint {
 .drawer__actions {
   display: flex;
   gap: 8px;
-  padding: 16px 20px;
+  padding: 16px 20px 0;
   flex-wrap: wrap;
   align-items: center;
 }
 
 .drawer__section {
-  padding: 0 20px 20px;
+  padding: 20px;
 }
 
 .pr-list {
@@ -677,6 +677,7 @@ a.hint {
 .pr-list__meta {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   margin-top: 6px;
   font-size: 0.8rem;
@@ -790,4 +791,35 @@ a.hint {
 
 .ok {
   color: var(--green);
+}
+
+.pr-list__repo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.status-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.status-icon {
+  display: inline-flex;
+  color: var(--text-3);
+}
+
+.status-icon--ok {
+  color: var(--green);
+}
+
+.status-icon--fail {
+  color: var(--red);
+}
+
+.status-icon--warn {
+  color: var(--amber);
 }
