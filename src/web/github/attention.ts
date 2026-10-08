@@ -13,7 +13,7 @@ export interface AttentionItem {
   activityAt: string
 }
 
-/** Priority order (spec §6: e, f, g, h, i). */
+/** Which rule wins when one item matches several (spec §6: e, f, g, h, i). */
 export const ATTENTION_ORDER: AttentionKind[] = ['review_requested', 'changes_or_comments', 'ready_to_merge', 'mentioned', 'ci_failing']
 
 export function isUnseen(seen: SeenState, url: string, at: string): boolean {
@@ -59,5 +59,6 @@ export function computeAttention(s: GitHubSnapshot, me: string, seen: SeenState)
     const current = best.get(c.url)
     if (!current || rank(c.kind) < rank(current.kind)) best.set(c.url, c)
   }
-  return [...best.values()].sort((a, b) => rank(a.kind) - rank(b.kind) || Date.parse(b.activityAt) - Date.parse(a.activityAt))
+  // Newest activity first; rule order only breaks ties.
+  return [...best.values()].sort((a, b) => Date.parse(b.activityAt) - Date.parse(a.activityAt) || rank(a.kind) - rank(b.kind))
 }
