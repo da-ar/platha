@@ -20,6 +20,7 @@ These two values are never committed. `npm run deploy` passes them to Cloudflare
 
 - `PLATHA_GITHUB_ORG`: your GitHub organisation's login, e.g. `acme`
 - `PLATHA_SLACK_TEAM_ID`: your Slack workspace ID, e.g. `T0123456`
+- `PLATHA_CALENDAR_DOMAIN` (optional): your company email domain, e.g. `acme.com`. When someone has several emails on GitHub, Platha uses the one at this domain for their calendar.
 
 To deploy from your machine, copy the example file and fill it in. `.deploy.env` is git-ignored.
 
@@ -74,14 +75,17 @@ Everyone pastes their own GitHub token when they join. It stays in their browser
    - Issues
    - Commit statuses
    - Metadata (added automatically)
-6. Generate, copy, and paste it into Platha.
+6. **Permissions → Account permissions → Email addresses: Read-only.** Optional; it lets Platha find your calendar from your work email even if that email is private on GitHub.
+7. Generate, copy, and paste it into Platha.
+
+Already have a token? You can add the email permission by editing it on GitHub, then signing out of Platha and back in.
 
 ### If GitHub says the token is "pending approval"
 
 Some organisations require an admin to approve fine-grained tokens. If you can't wait for that, use a **classic** token instead:
 
 1. **Personal access tokens → Tokens (classic) → Generate new token (classic)**.
-2. Tick the **`repo`** scope.
+2. Tick the **`repo`** scope, and optionally **`user:email`** (for your calendar).
 
 > ⚠️ A classic `repo` token can also **write** to every repository you can access. Platha only ever reads with it, but keep it private, and prefer the fine-grained token when you can.
 
@@ -105,7 +109,7 @@ Open <https://meet.new>, copy the meeting link, and paste it into **Settings →
 
 Platha can show "In a meeting" on your card, plus a Calendar tab with today's busy times. It only ever shows **when** you're busy, never what the meeting is.
 
-1. On GitHub, set **Settings → Public profile → Public email** to your Google work address. Then sign out of Platha and back in, so Platha picks it up.
+1. Give your GitHub token **Email addresses: Read-only** (see [step 6](#token)), then sign out of Platha and back in. Platha reads your account's emails at sign-in, including private ones, and uses your work address. If you'd rather not add the permission, setting your **public** GitHub email to your Google work address works too.
 2. In Google Calendar, open **Settings → your calendar → Access permissions**, tick **Make available to public**, and choose **See only free/busy (hide details)**.
 
 Platha reads your calendar's public free/busy feed every 5 minutes while anyone has the office open. If Google is unavailable it backs off (5, 10, 20, 40 minutes, then hourly). If the calendar isn't public, it checks again every 6 hours. **Settings → Calendar** shows whether it's working.
@@ -136,6 +140,7 @@ npm run e2e     # two browsers, a fake GitHub, and a local Worker
 - `CLOUDFLARE_ACCOUNT_ID`: shown on the Workers & Pages overview page.
 - `PLATHA_GITHUB_ORG`: your GitHub organisation's login (step 2).
 - `PLATHA_SLACK_TEAM_ID`: your Slack workspace ID (step 2).
+- `PLATHA_CALENDAR_DOMAIN` (optional): your company email domain (step 2).
 
 The names start with `PLATHA_` because GitHub doesn't allow secret names beginning with `GITHUB_`.
 

@@ -11,11 +11,13 @@ export function Settings({
   me,
   meetUrl = null,
   email = null,
+  emailSource = null,
   calendarState = 'no_email',
 }: {
   me: Member
   meetUrl?: string | null
   email?: string | null
+  emailSource?: 'account' | 'public' | null
   calendarState?: CalendarState
 }) {
   const { state } = useOffice()
@@ -30,7 +32,7 @@ export function Settings({
       <h1>Settings</h1>
       <SlackSection me={self} />
       <MeetRoomSection meetUrl={meetUrl} />
-      <CalendarSection email={email} state={calendarState} />
+      <CalendarSection email={email} source={emailSource} state={calendarState} />
       <TokenSection />
       {self.role === 'admin' && <AdminSection me={self} members={Object.values(state.members)} />}
       <section className="panel">
@@ -150,15 +152,23 @@ const CALENDAR_STATE: Record<CalendarState, string> = {
   no_email: '',
 }
 
-/** Read-only: the calendar comes from your public GitHub email. */
-function CalendarSection({ email, state }: { email: string | null; state: CalendarState }) {
+const EMAIL_PERMISSION_HELP = (
+  <>
+    In GitHub → Settings → Developer settings → your token, add <strong>Account permissions → Email addresses: Read-only</strong>{' '}
+    (classic tokens: the <code>user:email</code> scope), then sign out of Platha and back in.
+  </>
+)
+
+/** Read-only: the calendar is found from your GitHub email, never typed in. */
+function CalendarSection({ email, source, state }: { email: string | null; source: 'account' | 'public' | null; state: CalendarState }) {
   return (
     <section className="panel">
       <h2>Calendar</h2>
       {email ? (
         <>
           <p>
-            Using your public GitHub email: <strong>{email}</strong>
+            {source === 'account' ? 'Using your GitHub account email: ' : 'Using your public GitHub email: '}
+            <strong>{email}</strong>
           </p>
           <p className={state === 'ok' ? 'ok' : state === 'error' || state === 'unavailable' ? 'error' : 'muted'}>{CALENDAR_STATE[state]}</p>
           <ol className="steps">
@@ -167,21 +177,13 @@ function CalendarSection({ email, state }: { email: string | null; state: Calend
               Tick <strong>Make available to public</strong> and choose <strong>See only free/busy (hide details)</strong>.
             </li>
           </ol>
+          {source === 'public' && <p className="hint">To use a private email instead: {EMAIL_PERMISSION_HELP}</p>}
           <p className="hint">Teammates only ever see when you're busy, never what the meeting is.</p>
         </>
       ) : (
         <>
-          <p className="muted">Calendar not shared: your GitHub profile has no public email.</p>
-          <ol className="steps">
-            <li>
-              On GitHub, open{' '}
-              <a href="https://github.com/settings/profile" target="_blank" rel="noopener noreferrer">
-                Settings → Public profile
-              </a>{' '}
-              and set <strong>Public email</strong> to your Google work address.
-            </li>
-            <li>Sign out of Platha and sign back in.</li>
-          </ol>
+          <p className="muted">Calendar not shared: Platha can't see an email for your GitHub account.</p>
+          <p className="hint">{EMAIL_PERMISSION_HELP}</p>
         </>
       )}
     </section>

@@ -238,7 +238,9 @@ The Chat button opens `slack://user?team=<SLACK_TEAM_ID>&id=<slack_user_id>`. If
 
 Knocks are never persisted. The Call button is disabled for offline teammates.
 
-**Calendar busy times (optional).** A member's public GitHub email (from `GET /user`, refreshed at each sign-in, stored privately as `members.email`) locates their Google Calendar's public iCal feed. People share it publicly as free/busy only.
+**Calendar busy times (optional).** A member's GitHub email locates their Google Calendar's public iCal feed.
+- **Source:** at each sign-in, `GET /user/emails` (token permission "Email addresses: read" / `user:email`) gives the verified account emails, private ones included. Platha picks the one at `CALENDAR_EMAIL_DOMAIN` if set, else the primary. Without the permission, it falls back to the public profile email.
+- **Storage:** stored privately as `members.email` with `email_source`. People share it publicly as free/busy only.
 - **Sync:** the Office syncs feeds on its alarm while anyone is connected, at most 3 per run: every 5 min when OK; on errors 5→10→20→40 min, then hourly, ±20% jitter; 6 h when not public; never without an email.
 - **Data kept:** only busy start/end times (now−12 h…now+36 h). After an error, the last good times are shown for up to 2 h.
 - **Status:** `Member.meetingUntil` drives the "In a meeting · until HH:MM" status (precedence Offline > Away > In a meeting > Focusing > Online).

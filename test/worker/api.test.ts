@@ -64,7 +64,8 @@ describe('join and login', () => {
     await setupAlice()
     const res = await post('/api/join', { code: 'wrong', token: 'tok-bob' })
     expect(res.status).toBe(404)
-    expect(seen).toHaveLength(1)
+    // Only setup's two calls (/user and /user/emails); the bad invite never reaches GitHub.
+    expect(seen).toHaveLength(2)
   })
 
   test('join is rate limited after 10 bad codes', async () => {

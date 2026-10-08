@@ -27,6 +27,8 @@ export interface Me {
   meetUrl: string | null
   /** Your public GitHub email, used to find your calendar. Private to you. */
   email: string | null
+  /** 'account': from the GitHub account's (private) emails; 'public': the public profile email. */
+  emailSource: 'account' | 'public' | null
   calendarState: CalendarState
   config: OfficeConfig
 }

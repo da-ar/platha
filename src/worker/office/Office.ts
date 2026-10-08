@@ -5,7 +5,7 @@ import { normalizeMeetUrl, normalizeSlackUserId } from '../../shared/validators'
 import { randomId, safeEqual } from '../crypto'
 import type { Env } from '../env'
 import { busyBlocks, calendarUrl, meetingUntil, nextAttempt, type BusyBlock, type SyncState } from '../calendar'
-import type { GitHubIdentity } from '../github'
+import type { EmailSource, GitHubIdentity } from '../github'
 import * as store from './store'
 
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
@@ -202,8 +202,8 @@ export class Office extends DurableObject<Env> {
     return { state: row.state, busy: this.usableBusy(githubId), fetchedAt: row.fetchedAt }
   }
 
-  async getEmail(githubId: number): Promise<string | null> {
-    return store.getEmail(this.sql, githubId)
+  async getEmail(githubId: number): Promise<{ email: string | null; source: EmailSource | null }> {
+    return { email: store.getEmail(this.sql, githubId), source: store.getEmailSource(this.sql, githubId) }
   }
 
   /** Busy times we're willing to show: current, or from an error no older than 2 h. */

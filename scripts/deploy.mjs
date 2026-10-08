@@ -18,6 +18,13 @@ for (const s of settings) {
   else if (!s.pattern.test(value)) problems.push(`${s.env} doesn't look right (${s.hint})`)
   else vars.push('--var', `${s.binding}:${value}`)
 }
+// Optional: the company email domain, to pick the work address for calendars.
+const domain = (process.env.PLATHA_CALENDAR_DOMAIN ?? '').trim().toLowerCase().replace(/^@/, '')
+if (domain) {
+  if (/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain)) vars.push('--var', `CALENDAR_EMAIL_DOMAIN:${domain}`)
+  else problems.push(`PLATHA_CALENDAR_DOMAIN doesn't look like a domain (e.g. rapid7.com)`)
+}
+
 if (problems.length > 0) {
   console.error(`Not deploying:\n  - ${problems.join('\n  - ')}\nSee docs/SETUP.md, step 2.`)
   process.exit(1)

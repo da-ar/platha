@@ -9,4 +9,6 @@ export interface Env {
   GITHUB_API_BASE: string
   /** Google's public iCal base; overridable for local testing. */
   CALENDAR_ICAL_BASE?: string
+  /** Company email domain, to pick the work address when an account has several. */
+  CALENDAR_EMAIL_DOMAIN?: string
 }

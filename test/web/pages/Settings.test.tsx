@@ -117,19 +117,30 @@ test('a saved room is pre-filled, can be cleared, and bad links are rejected', a
   expect(await screen.findByText('Removed')).toBeInTheDocument()
 })
 
-test('calendar section shows the public email and sharing steps', () => {
+test('calendar section shows an account email and sharing steps', () => {
   api()
-  render(<Settings me={bob} email="bob@acme.dev" calendarState="unavailable" />)
+  render(<Settings me={bob} email="bob@acme.dev" emailSource="account" calendarState="unavailable" />)
   const section = within(screen.getByRole('heading', { name: 'Calendar' }).closest('section')!)
   expect(section.getByText('bob@acme.dev')).toBeInTheDocument()
   expect(section.getByText(/isn't public yet/)).toBeInTheDocument()
   expect(section.getByText(/See only free\/busy/)).toBeInTheDocument()
+  expect(section.getByText(/GitHub account email/)).toBeInTheDocument()
+  expect(section.queryByText(/use a private email instead/)).toBeNull()
 })
 
-test('calendar section explains how to add a public email', () => {
+test('a public email suggests switching to a private one', () => {
+  api()
+  render(<Settings me={bob} email="bob@acme.dev" emailSource="public" calendarState="ok" />)
+  const section = within(screen.getByRole('heading', { name: 'Calendar' }).closest('section')!)
+  expect(section.getByText(/public GitHub email/)).toBeInTheDocument()
+  expect(section.getByText(/use a private email instead/)).toBeInTheDocument()
+  expect(section.getByText(/Email addresses: Read-only/)).toBeInTheDocument()
+})
+
+test('calendar section explains the token permission when there is no email', () => {
   api()
   render(<Settings me={bob} />)
   const section = within(screen.getByRole('heading', { name: 'Calendar' }).closest('section')!)
-  expect(section.getByText(/no public email/)).toBeInTheDocument()
-  expect(section.getByRole('link', { name: /Public profile/ })).toHaveAttribute('href', 'https://github.com/settings/profile')
+  expect(section.getByText(/can't see an email/)).toBeInTheDocument()
+  expect(section.getByText(/Email addresses: Read-only/)).toBeInTheDocument()
 })
