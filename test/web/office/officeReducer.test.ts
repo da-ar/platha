@@ -1,21 +1,6 @@
 import { expect, test } from 'vitest'
 import { initialOfficeState, officeReducer } from '../../../src/web/office/officeReducer'
-import type { Member } from '../../../src/shared/types'
-
-export function member(over: Partial<Member> = {}): Member {
-  return {
-    githubId: 1,
-    login: 'alice',
-    name: 'Alice',
-    avatarUrl: 'https://avatars.githubusercontent.com/u/1',
-    slackUserId: null,
-    role: 'member',
-    status: 'available',
-    statusText: null,
-    online: true,
-    ...over,
-  }
-}
+import { member } from '../factories'
 
 test('snapshot replaces members', () => {
   const s = officeReducer(

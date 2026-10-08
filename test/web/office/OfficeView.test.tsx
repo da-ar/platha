@@ -1,0 +1,134 @@
+import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { act, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { OfficeView } from '../../../src/web/office/OfficeView'
+import { useOffice, type Office } from '../../../src/web/office/useOffice'
+import { useGitHub, type GitHubState } from '../../../src/web/github/useGitHub'
+import { openTab } from '../../../src/web/navigate'
+import { getToken } from '../../../src/web/token'
+import { member, pr, snapshot } from '../factories'
+
+vi.mock('../../../src/web/navigate', () => ({ go: vi.fn(), openTab: vi.fn(() => null) }))
+vi.mock('../../../src/web/office/useOffice', () => ({ useOffice: vi.fn() }))
+vi.mock('../../../src/web/github/useGitHub', () => ({ useGitHub: vi.fn() }))
+
+const me = member({ githubId: 1, login: 'alice', name: 'Alice' })
+const config = { org: 'acme', slackTeamId: 'T0000000' }
+
+let office: Office
+let github: GitHubState
+
+function setOffice(over: Partial<Office['state']> = {}) {
+  office = {
+    state: {
+      connection: 'open',
+      members: {
+        1: me,
+        2: member({ githubId: 2, login: 'bob', name: 'Bob', online: false }),
+        3: member({ githubId: 3, login: 'carol', name: 'Carol' }),
+        4: member({ githubId: 4, login: 'dan', name: 'Aaron', online: false }),
+      },
+      ...over,
+    },
+    send: vi.fn(),
+    subscribe: vi.fn(() => () => {}),
+  }
+  vi.mocked(useOffice).mockImplementation(() => office)
+}
+
+function setGitHub(over: Partial<GitHubState> = {}) {
+  github = { snapshot: snapshot(), status: 'ok', updatedAt: Date.now(), refresh: vi.fn(), ...over }
+  vi.mocked(useGitHub).mockImplementation(() => github)
+}
+
+beforeEach(() => {
+  setOffice()
+  setGitHub()
+})
+
+describe('tiles', () => {
+  test('office orders online before offline', () => {
+    render(<OfficeView me={me} config={config} />)
+    const tiles = within(screen.getByRole('region', { name: 'Team' })).getAllByRole('button')
+    expect(tiles.map((t) => t.getAttribute('aria-label'))).toEqual(['Alice, Online', 'Carol, Online', 'Aaron, Offline', 'Bob, Offline'])
+  })
+
+  test('teammates are polled by login, excluding me', () => {
+    render(<OfficeView me={me} config={config} />)
+    expect(useGitHub).toHaveBeenCalledWith({ org: 'acme', teammates: ['bob', 'carol', 'dan'] })
+  })
+
+  test('my tile uses my PRs, teammates use theirs', () => {
+    setGitHub({ snapshot: snapshot({ mine: [pr(10)], byTeammate: { carol: [pr(20, { isDraft: true })], bob: 'error' } }) })
+    render(<OfficeView me={me} config={config} />)
+    expect(within(screen.getByRole('button', { name: 'Alice, Online' })).getByText('#10 in review')).toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: 'Carol, Online' })).getByText('#20 draft')).toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: 'Bob, Offline' })).getByText("Couldn't load")).toBeInTheDocument()
+  })
+})
+
+describe('needs you', () => {
+  test('clicking a needs-you row marks it seen and removes it on next render', async () => {
+    const mention = { url: 'https://github.com/acme/api/issues/7', number: 7, title: 'Help', repo: 'acme/api', updatedAt: new Date(Date.now() + 60_000).toISOString() }
+    setGitHub({ snapshot: snapshot({ mentions: [mention], reviewRequested: [pr(3)] }) })
+    render(<OfficeView me={me} config={config} />)
+    expect(screen.getByRole('heading', { name: 'Needs you · 2' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /#7 Help/ }))
+    expect(openTab).toHaveBeenCalledWith(mention.url)
+    expect(screen.queryByRole('button', { name: /#7 Help/ })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Needs you · 1' })).toBeInTheDocument()
+  })
+
+  test('empty state', () => {
+    render(<OfficeView me={me} config={config} />)
+    expect(screen.getByText('Nothing needs you right now.')).toBeInTheDocument()
+  })
+})
+
+describe('banners', () => {
+  test('unauthorized shows token banner', async () => {
+    setGitHub({ snapshot: null, status: 'unauthorized' })
+    render(<OfficeView me={me} config={config} />)
+    const field = screen.getByLabelText('Your GitHub token stopped working — paste a new one.')
+    await userEvent.type(field, ' tok-new ')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(getToken()).toBe('tok-new')
+    expect(github.refresh).toHaveBeenCalled()
+  })
+
+  test('error shows how stale the data is', () => {
+    setGitHub({ status: 'error', updatedAt: Date.now() - 4 * 60_000 - 5_000 })
+    render(<OfficeView me={me} config={config} />)
+    expect(screen.getByText('Updated 4m ago')).toBeInTheDocument()
+  })
+
+  test('reconnecting indicator', () => {
+    setOffice({ connection: 'reconnecting' })
+    render(<OfficeView me={me} config={config} />)
+    expect(screen.getByText('Reconnecting…')).toBeInTheDocument()
+  })
+
+  test('removed replaces the office', () => {
+    setOffice({ connection: 'removed' })
+    render(<OfficeView me={me} config={config} />)
+    expect(screen.getByText("You've been removed from this office.")).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Team' })).toBeNull()
+  })
+})
+
+describe('status', () => {
+  test('changing status sends set_status', async () => {
+    render(<OfficeView me={me} config={config} />)
+    await userEvent.selectOptions(screen.getByLabelText('Your status'), 'focusing')
+    expect(office.send).toHaveBeenCalledWith({ type: 'set_status', status: 'focusing' })
+    await userEvent.type(screen.getByLabelText('Status note'), 'Deep work{Enter}')
+    expect(office.send).toHaveBeenLastCalledWith({ type: 'set_status', status: 'available', text: 'Deep work' })
+  })
+})
+
+test('ticks without crashing', () => {
+  vi.useFakeTimers()
+  render(<OfficeView me={me} config={config} />)
+  act(() => vi.advanceTimersByTime(60_000))
+  vi.useRealTimers()
+})
