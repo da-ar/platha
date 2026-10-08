@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import { parseClientMessage, type ClientMessage, type ServerMessage } from '../../shared/messages'
 import type { Member, Result } from '../../shared/types'
-import { normalizeSlackUserId } from '../../shared/validators'
+import { normalizeMeetUrl, normalizeSlackUserId } from '../../shared/validators'
 import { randomId, safeEqual } from '../crypto'
 import type { Env } from '../env'
 import type { GitHubIdentity } from '../github'
@@ -145,17 +145,37 @@ export class Office extends DurableObject<Env> {
 
   // --- profile and admin ---------------------------------------------------
 
-  async updateProfile(githubId: number, profile: { slackUserId: string | null }): Promise<Result<Member, 'invalid_slack_id'>> {
-    let slackUserId: string | null = null
-    if (profile.slackUserId !== null && profile.slackUserId.trim() !== '') {
-      slackUserId = normalizeSlackUserId(profile.slackUserId)
-      if (slackUserId === null) return { ok: false, error: 'invalid_slack_id' }
+  /**
+   * Partial update: a field left undefined is unchanged; null or blank clears it.
+   * The Meet room is private to its owner and never broadcast.
+   */
+  async updateProfile(
+    githubId: number,
+    profile: { slackUserId?: string | null; meetUrl?: string | null },
+  ): Promise<Result<{ member: Member; meetUrl: string | null }, 'invalid_slack_id' | 'invalid_meet_url'>> {
+    const blank = (v: string | null) => v === null || v.trim() === ''
+    let slackUserId: string | null | undefined
+    if (profile.slackUserId !== undefined) {
+      slackUserId = blank(profile.slackUserId) ? null : normalizeSlackUserId(profile.slackUserId!)
+      if (!blank(profile.slackUserId) && slackUserId === null) return { ok: false, error: 'invalid_slack_id' }
     }
-    store.setSlackUserId(this.sql, githubId, slackUserId)
-    this.memberChanged(githubId)
+    let meetUrl: string | null | undefined
+    if (profile.meetUrl !== undefined) {
+      meetUrl = blank(profile.meetUrl) ? null : normalizeMeetUrl(profile.meetUrl!)
+      if (!blank(profile.meetUrl) && meetUrl === null) return { ok: false, error: 'invalid_meet_url' }
+    }
+    if (slackUserId !== undefined) {
+      store.setSlackUserId(this.sql, githubId, slackUserId)
+      this.memberChanged(githubId)
+    }
+    if (meetUrl !== undefined) store.setMeetUrl(this.sql, githubId, meetUrl)
     const member = this.member(githubId)
     if (!member) throw new Error('member vanished')
-    return { ok: true, value: member }
+    return { ok: true, value: { member, meetUrl: store.getMeetUrl(this.sql, githubId) } }
+  }
+
+  async getMeetUrl(githubId: number): Promise<string | null> {
+    return store.getMeetUrl(this.sql, githubId)
   }
 
   async removeMember(adminId: number, githubId: number): Promise<Result<null, 'forbidden' | 'not_found' | 'cannot_remove_self'>> {

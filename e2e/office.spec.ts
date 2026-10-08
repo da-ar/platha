@@ -56,6 +56,23 @@ test('two teammates see each other and can knock', async ({ browser }) => {
 
   await alice.getByRole('dialog', { name: 'Call bob' }).getByRole('button', { name: 'Close' }).click()
   await alice.keyboard.press('Escape')
+
+  // With a saved Meet room, Call rings straight away: no meet.new tab, no pasting.
+  await alice.goto('/settings')
+  await alice.getByLabel('Meet room link').fill('meet.google.com/xyz-abcd-efg')
+  await alice.getByRole('heading', { name: 'Meet room' }).locator('..').getByRole('button', { name: 'Save' }).click()
+  await expect(alice.getByText(/Call now rings straight away/)).toBeVisible()
+  await alice.goto('/')
+  await alice.getByRole('button', { name: 'bob, Online' }).click()
+  await alice.getByRole('button', { name: 'Call', exact: true }).click()
+  await expect(alice.getByText('Ringing bob…')).toBeVisible()
+  await expect(alice.getByLabel('Meet link')).toHaveCount(0)
+  await expect(alice.getByRole('link', { name: 'Open your Meet room' })).toHaveAttribute('href', 'https://meet.google.com/xyz-abcd-efg')
+  await expect(bob.getByText('alice is calling')).toBeVisible()
+  await bob.getByRole('button', { name: 'Join' }).click()
+  await expect(alice.getByText('bob is joining the call')).toBeVisible()
+  await alice.getByRole('dialog', { name: 'Call bob' }).getByRole('button', { name: 'Close' }).click()
+  await alice.keyboard.press('Escape')
   await bob.close()
   await expect(alice.getByRole('button', { name: 'bob, Offline' })).toBeVisible({ timeout: 40_000 })
 })

@@ -238,6 +238,8 @@ The Chat button opens `slack://user?team=<SLACK_TEAM_ID>&id=<slack_user_id>`. If
 
 Knocks are never persisted. The Call button is disabled for offline teammates.
 
+**Personal Meet room (optional).** A member can save one Meet link in Settings, stored as `members.meet_url`. With a room saved, **Call** skips steps 1–2: it opens the room for the caller and sends the knock straight away with that link. The room is private to its owner: it's returned only by their own `/api/me`, and is sent to someone else only inside a knock to them. It's never part of `Member` or any broadcast.
+
 ## 8. Security
 
 - **Token theft via XSS is the main risk.** Mitigations:

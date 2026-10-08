@@ -26,6 +26,9 @@ export function migrate(sql: SqlStorage): void {
     CREATE TABLE IF NOT EXISTS join_failures (ip TEXT NOT NULL, at INTEGER NOT NULL);
     CREATE INDEX IF NOT EXISTS join_failures_by_ip ON join_failures (ip, at);
   `)
+  // Added after launch: each member's own Meet room. Private to them; not part of Member.
+  const columns = sql.exec<{ name: string }>('PRAGMA table_info(members)').toArray().map((c) => c.name)
+  if (!columns.includes('meet_url')) sql.exec('ALTER TABLE members ADD COLUMN meet_url TEXT')
 }
 
 type MemberRow = {
@@ -98,6 +101,15 @@ export function setStatus(sql: SqlStorage, githubId: number, status: Status, tex
 
 export function setSlackUserId(sql: SqlStorage, githubId: number, slackUserId: string | null): void {
   sql.exec('UPDATE members SET slack_user_id = ? WHERE github_id = ?', slackUserId, githubId)
+}
+
+export function setMeetUrl(sql: SqlStorage, githubId: number, meetUrl: string | null): void {
+  sql.exec('UPDATE members SET meet_url = ? WHERE github_id = ?', meetUrl, githubId)
+}
+
+export function getMeetUrl(sql: SqlStorage, githubId: number): string | null {
+  const row = sql.exec<{ meet_url: string | null }>('SELECT meet_url FROM members WHERE github_id = ?', githubId).toArray()[0]
+  return row?.meet_url ?? null
 }
 
 export function deleteMember(sql: SqlStorage, githubId: number): void {

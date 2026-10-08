@@ -35,14 +35,14 @@ export function sortMembers(members: Member[]): Member[] {
   return [...members].sort((a, b) => Number(b.online) - Number(a.online) || displayName(a).localeCompare(displayName(b)))
 }
 
-export function OfficeView({ me, config }: { me: Member; config: OfficeConfig }) {
+export function OfficeView({ me, config, meetUrl = null }: { me: Member; config: OfficeConfig; meetUrl?: string | null }) {
   const office = useOffice()
   const { state, send } = office
   const now = useNow(10_000)
   // Tiles glide to their new place when someone comes online or goes offline.
   const [tilesRef] = useAutoAnimate<HTMLDivElement>()
   const [selected, setSelected] = useState<number | null>(null)
-  const [calling, setCalling] = useState<{ member: Member; popupBlocked: boolean } | null>(null)
+  const [calling, setCalling] = useState<{ member: Member; popupBlocked: boolean; roomUrl?: string } | null>(null)
   const knocks = useKnocks(office, state.members)
   useRinging(knocks.incoming)
   const closeDrawer = useCallback(() => setSelected(null), [])
@@ -74,7 +74,14 @@ export function OfficeView({ me, config }: { me: Member; config: OfficeConfig })
 
   function startCall(m: Member) {
     knocks.dismissOutgoing()
-    setCalling({ member: m, popupBlocked: !openNewMeet() })
+    if (meetUrl) {
+      // Saved room: open it for you and ring straight away; nothing to copy.
+      openTab(meetUrl)
+      knocks.call(m, meetUrl)
+      setCalling({ member: m, popupBlocked: false, roomUrl: meetUrl })
+    } else {
+      setCalling({ member: m, popupBlocked: !openNewMeet() })
+    }
   }
 
   const selectedMember = selected === null ? null : (state.members[selected] ?? null)
@@ -157,6 +164,7 @@ export function OfficeView({ me, config }: { me: Member; config: OfficeConfig })
         <CallModal
           member={calling.member}
           popupBlocked={calling.popupBlocked}
+          roomUrl={calling.roomUrl}
           outgoing={knocks.outgoing && knocks.outgoing.to.githubId === calling.member.githubId ? knocks.outgoing : null}
           onSubmit={(url) => knocks.call(calling.member, url)}
           onCancel={() => {

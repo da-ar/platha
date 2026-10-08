@@ -97,6 +97,10 @@ Teammates can message you from Platha once you've added your Slack member ID:
 2. Click **⋮** (more) → **Copy member ID**. It starts with `U` or `W`.
 3. In Platha, open **Settings**, paste it under **Slack member ID**, and click **Save**.
 
+### Optional: save a Meet room for one-click calls
+
+Open <https://meet.new>, copy the meeting link, and paste it into **Settings → Meet room**. From then on, **Call** opens that room and rings your teammate straight away, with no copying and pasting. Only the person you call sees the link.
+
 ## 8. Local development
 
 ```sh
