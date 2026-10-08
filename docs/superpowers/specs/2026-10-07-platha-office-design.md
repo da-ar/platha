@@ -226,7 +226,7 @@ Pure functions in `src/web/github/attention.ts`, one per rule:
 
 ### Chat
 
-The Chat button opens `slack://user?team=<SLACK_TEAM_ID>&id=<slack_user_id>`. If the teammate has no Slack ID set, the button is disabled with the tooltip "<Name> hasn't added their Slack ID". A secondary "Open Slack in browser" link points to `https://app.slack.com/client/<SLACK_TEAM_ID>`.
+The Chat button opens `slack://user?team=<SLACK_TEAM_ID>&id=<slack_user_id>`. If the teammate has no Slack ID set, the button is disabled with the tooltip "<Name> hasn't added their Slack ID".
 
 ### Call (knock + meet.new)
 
