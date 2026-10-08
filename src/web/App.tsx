@@ -3,6 +3,7 @@ import { me, type Me } from './api'
 import { Join } from './pages/Join'
 import { Login } from './pages/Login'
 import { Setup } from './pages/Setup'
+import { OfficeView } from './office/OfficeView'
 
 type Route = { page: 'setup' } | { page: 'join'; code: string } | { page: 'settings' } | { page: 'office' }
 
@@ -12,10 +13,6 @@ export function route(pathname: string): Route {
   if (join) return { page: 'join', code: join[1] }
   if (pathname === '/settings') return { page: 'settings' }
   return { page: 'office' }
-}
-
-function Office({ data }: { data: Me }) {
-  return <main className="office">Welcome, {data.member.name ?? data.member.login}</main>
 }
 
 export function App() {
@@ -34,5 +31,5 @@ function SignedIn() {
 
   if (state.status === 'loading') return null
   if (state.status === 'out') return <Login />
-  return <Office data={state.data} />
+  return <OfficeView me={state.data.member} config={state.data.config} />
 }
