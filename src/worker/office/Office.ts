@@ -4,6 +4,7 @@ import type { Member, Result } from '../../shared/types'
 import { normalizeMeetUrl, normalizeSlackUserId } from '../../shared/validators'
 import { randomId, safeEqual } from '../crypto'
 import type { Env } from '../env'
+import { busyBlocks, calendarUrl, meetingUntil, nextAttempt, type BusyBlock, type SyncState } from '../calendar'
 import type { GitHubIdentity } from '../github'
 import * as store from './store'
 
@@ -16,6 +17,21 @@ const OFFLINE_GRACE_MS = 30_000
 const STALE_SOCKET_MS = 150_000
 const ALARM_INTERVAL_MS = 30_000
 const OPEN = 1
+/** Calendars fetched per alarm run, so a backlog spreads out. */
+const CALENDARS_PER_RUN = 3
+/** After an error, keep showing the last good busy times for this long. */
+const CALENDAR_STALE_OK_MS = 2 * 60 * 60 * 1000
+/** Busy times are kept for now − 12 h … now + 36 h, enough for any viewer's "today". */
+const CALENDAR_BEHIND_MS = 12 * 60 * 60 * 1000
+const CALENDAR_AHEAD_MS = 36 * 60 * 60 * 1000
+const CALENDAR_MAX_BYTES = 2 * 1024 * 1024
+const CALENDAR_TIMEOUT_MS = 10_000
+
+export interface CalendarView {
+  state: store.CalendarState
+  busy: BusyBlock[]
+  fetchedAt: number | null
+}
 
 interface SocketAttachment {
   githubId: number
@@ -81,6 +97,8 @@ export class Office extends DurableObject<Env> {
   }
 
   async alarm(): Promise<void> {
+    await this.syncCalendars()
+    this.updateMeetings()
     const now = this.now()
 
     for (const ws of this.ctx.getWebSockets()) {
@@ -174,6 +192,96 @@ export class Office extends DurableObject<Env> {
     return { ok: true, value: { member, meetUrl: store.getMeetUrl(this.sql, githubId) } }
   }
 
+  // --- calendars -------------------------------------------------------------
+
+  /** Today's busy times for a member, from the cache only. Never fetches. */
+  async getCalendar(githubId: number): Promise<CalendarView | null> {
+    if (!store.getMember(this.sql, githubId)) return null
+    const row = store.getCalendarSync(this.sql, githubId)
+    if (!row) return { state: 'no_email', busy: [], fetchedAt: null }
+    return { state: row.state, busy: this.usableBusy(githubId), fetchedAt: row.fetchedAt }
+  }
+
+  async getEmail(githubId: number): Promise<string | null> {
+    return store.getEmail(this.sql, githubId)
+  }
+
+  /** Busy times we're willing to show: current, or from an error no older than 2 h. */
+  private usableBusy(githubId: number): BusyBlock[] {
+    const row = store.getCalendarSync(this.sql, githubId)
+    if (!row || row.fetchedAt === null) return []
+    if (row.state === 'ok') return row.busy
+    if (row.state === 'error' && this.now() - row.fetchedAt <= CALENDAR_STALE_OK_MS) return row.busy
+    return []
+  }
+
+  /** Called after join/login: a new or changed public email restarts that calendar's sync. */
+  private calendarIdentityChanged(githubId: number): void {
+    const email = store.getEmail(this.sql, githubId)
+    const row = store.getCalendarSync(this.sql, githubId)
+    if (row && row.email === email) return
+    store.putCalendarSync(this.sql, {
+      githubId,
+      email,
+      state: email ? 'pending' : 'no_email',
+      busy: [],
+      fetchedAt: null,
+      nextAt: email ? this.now() : null,
+      failures: 0,
+      meetingUntil: null,
+    })
+  }
+
+  /** Fetches the calendars that are due, a few per run, with per-calendar backoff. */
+  private async syncCalendars(): Promise<void> {
+    const now = this.now()
+    for (const row of store.dueCalendars(this.sql, now, CALENDARS_PER_RUN)) {
+      if (!row.email) continue
+      const result = await this.fetchBusy(row.email, now)
+      const failures = result.state === 'error' ? row.failures + 1 : 0
+      const ok = result.state === 'ok'
+      store.putCalendarSync(this.sql, {
+        ...row,
+        state: result.state,
+        busy: ok ? result.busy : result.state === 'error' ? row.busy : [],
+        fetchedAt: ok ? now : result.state === 'error' ? row.fetchedAt : null,
+        nextAt: nextAttempt(result.state, failures, now),
+        failures,
+      })
+    }
+  }
+
+  private async fetchBusy(email: string, now: number): Promise<{ state: SyncState; busy: BusyBlock[] }> {
+    let res: Response
+    try {
+      res = await fetch(calendarUrl(email, this.env.CALENDAR_ICAL_BASE || undefined), { signal: AbortSignal.timeout(CALENDAR_TIMEOUT_MS) })
+    } catch {
+      return { state: 'error', busy: [] }
+    }
+    // 403/404: the calendar isn't public, or there's no calendar for that address.
+    if (res.status === 403 || res.status === 404 || res.status === 410) return { state: 'unavailable', busy: [] }
+    if (!res.ok) return { state: 'error', busy: [] }
+    if (Number(res.headers.get('Content-Length') ?? 0) > CALENDAR_MAX_BYTES) return { state: 'error', busy: [] }
+    const text = await res.text().catch(() => null)
+    if (text === null || text.length > CALENDAR_MAX_BYTES) return { state: 'error', busy: [] }
+    try {
+      return { state: 'ok', busy: busyBlocks(text, now - CALENDAR_BEHIND_MS, now + CALENDAR_AHEAD_MS) }
+    } catch {
+      return { state: 'error', busy: [] }
+    }
+  }
+
+  /** Broadcasts a member when they enter or leave a meeting. */
+  private updateMeetings(): void {
+    const now = this.now()
+    for (const row of store.listCalendarSync(this.sql)) {
+      const until = meetingUntil(this.usableBusy(row.githubId), now)
+      if (until === row.meetingUntil) continue
+      store.putCalendarSync(this.sql, { ...row, meetingUntil: until })
+      this.memberChanged(row.githubId)
+    }
+  }
+
   async getMeetUrl(githubId: number): Promise<string | null> {
     return store.getMeetUrl(this.sql, githubId)
   }
@@ -261,6 +369,7 @@ export class Office extends DurableObject<Env> {
       store.upsertMember(this.sql, identity, 'admin', this.now())
       store.setConfig(this.sql, 'invite_code', inviteCode)
     })
+    this.calendarIdentityChanged(identity.id)
     return { ok: true, value: { sessionId: this.createSession(identity.id), inviteCode } }
   }
 
@@ -278,12 +387,14 @@ export class Office extends DurableObject<Env> {
 
   async addMember(identity: GitHubIdentity): Promise<{ sessionId: string }> {
     store.upsertMember(this.sql, identity, 'member', this.now())
+    this.calendarIdentityChanged(identity.id)
     this.memberChanged(identity.id)
     return { sessionId: this.createSession(identity.id) }
   }
 
   async login(identity: GitHubIdentity): Promise<Result<{ sessionId: string }, 'not_member'>> {
     if (!store.refreshProfile(this.sql, identity)) return { ok: false, error: 'not_member' }
+    this.calendarIdentityChanged(identity.id)
     this.memberChanged(identity.id)
     return { ok: true, value: { sessionId: this.createSession(identity.id) } }
   }
@@ -324,7 +435,7 @@ export class Office extends DurableObject<Env> {
   }
 
   protected withPresence(m: Member): Member {
-    return { ...m, online: this.isOnline(m.githubId) }
+    return { ...m, online: this.isOnline(m.githubId), meetingUntil: meetingUntil(this.usableBusy(m.githubId), this.now()) }
   }
 
   /** Broadcasts the member's current state to every socket except `exclude`. */

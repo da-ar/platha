@@ -32,6 +32,6 @@ function SignedIn({ page }: { page: 'settings' | 'office' }) {
 
   if (state.status === 'loading') return null
   if (state.status === 'out') return <Login />
-  if (page === 'settings') return <Settings me={state.data.member} meetUrl={state.data.meetUrl} />
+  if (page === 'settings') return <Settings me={state.data.member} meetUrl={state.data.meetUrl} email={state.data.email} calendarState={state.data.calendarState} />
   return <OfficeView me={state.data.member} config={state.data.config} meetUrl={state.data.meetUrl} />
 }

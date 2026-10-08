@@ -7,4 +7,6 @@ export interface Env {
   SLACK_TEAM_ID: string
   SETUP_SECRET: string
   GITHUB_API_BASE: string
+  /** Google's public iCal base; overridable for local testing. */
+  CALENDAR_ICAL_BASE?: string
 }

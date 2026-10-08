@@ -1,5 +1,5 @@
 import { useAutoAnimate } from '@formkit/auto-animate/react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { displayName, type Member } from '../../shared/types'
 import type { OfficeConfig } from '../api'
 import { AlertsButton } from '../call/AlertsButton'
@@ -18,18 +18,10 @@ import { Drawer } from './Drawer'
 import { NeedsYou } from './NeedsYou'
 import { StatusPicker } from './StatusPicker'
 import { Tile } from './Tile'
+import { useNow } from './useNow'
 import { useOffice } from './useOffice'
 
 export const REMOVED = "You've been removed from this office."
-
-function useNow(intervalMs: number): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), intervalMs)
-    return () => clearInterval(t)
-  }, [intervalMs])
-  return now
-}
 
 export function sortMembers(members: Member[]): Member[] {
   return [...members].sort((a, b) => Number(b.online) - Number(a.online) || displayName(a).localeCompare(displayName(b)))

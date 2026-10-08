@@ -11,6 +11,8 @@ export interface Member {
   status: Status
   statusText: string | null
   online: boolean
+  /** End (UTC ms) of the calendar meeting they're in right now, if any. */
+  meetingUntil: number | null
 }
 
 export type Result<T, E extends string> = { ok: true; value: T } | { ok: false; error: E }

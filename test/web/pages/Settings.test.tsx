@@ -116,3 +116,20 @@ test('a saved room is pre-filled, can be cleared, and bad links are rejected', a
   await save()
   expect(await screen.findByText('Removed')).toBeInTheDocument()
 })
+
+test('calendar section shows the public email and sharing steps', () => {
+  api()
+  render(<Settings me={bob} email="bob@acme.dev" calendarState="unavailable" />)
+  const section = within(screen.getByRole('heading', { name: 'Calendar' }).closest('section')!)
+  expect(section.getByText('bob@acme.dev')).toBeInTheDocument()
+  expect(section.getByText(/isn't public yet/)).toBeInTheDocument()
+  expect(section.getByText(/See only free\/busy/)).toBeInTheDocument()
+})
+
+test('calendar section explains how to add a public email', () => {
+  api()
+  render(<Settings me={bob} />)
+  const section = within(screen.getByRole('heading', { name: 'Calendar' }).closest('section')!)
+  expect(section.getByText(/no public email/)).toBeInTheDocument()
+  expect(section.getByRole('link', { name: /Public profile/ })).toHaveAttribute('href', 'https://github.com/settings/profile')
+})

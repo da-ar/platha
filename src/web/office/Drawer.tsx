@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { displayName, type Member } from '../../shared/types'
 import { slackDmUrl } from '../call/slack'
 import type { PullRequest } from '../github/types'
 import { Avatar } from './Avatar'
-import { presenceLabel } from './presence'
+import { CalendarDay } from './CalendarDay'
+import { presenceText } from './presence'
 import { PrStatusIcons } from './PrStatusIcons'
 
 export function Drawer({
@@ -29,6 +30,15 @@ export function Drawer({
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const [tab, setTab] = useState<'prs' | 'calendar'>('prs')
+  const tabRefs = { prs: useRef<HTMLButtonElement>(null), calendar: useRef<HTMLButtonElement>(null) }
+  function onTabKey(e: ReactKeyboardEvent) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    const next = tab === 'prs' ? 'calendar' : 'prs'
+    setTab(next)
+    tabRefs[next].current?.focus()
+  }
+
   const noSlack = !member.slackUserId ? `${name} hasn't added their Slack ID` : !slackTeamId ? "Slack isn't set up for this office" : null
 
   return (
@@ -40,7 +50,7 @@ export function Drawer({
           <div>
             <h2>{name}</h2>
             <span className="muted">
-              @{member.login} · {presenceLabel(member)}
+              @{member.login} · {presenceText(member)}
               {member.online && member.statusText ? ` · ${member.statusText}` : ''}
             </span>
           </div>
@@ -66,32 +76,66 @@ export function Drawer({
           </div>
         )}
 
-        <section className="drawer__section">
-          <h2>Open pull requests</h2>
-          {prs === 'error' ? (
-            <p className="muted">Couldn't load</p>
-          ) : prs === undefined ? (
-            <p className="muted">Loading…</p>
-          ) : prs.length === 0 ? (
-            <p className="muted">No open pull requests.</p>
-          ) : (
-            <ul className="pr-list">
-              {prs.map((pr) => (
-                <li key={pr.url}>
-                  <a href={pr.url} target="_blank" rel="noopener noreferrer">
-                    <span className="pr-list__title">
-                      #{pr.number} {pr.title}
-                    </span>
-                    <span className="pr-list__meta">
-                      <span className="pr-list__repo">{pr.repo}</span>
-                      <PrStatusIcons pr={pr} />
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <div className="tabs" role="tablist" aria-label={`${name}'s work and calendar`} onKeyDown={onTabKey}>
+          <button
+            ref={tabRefs.prs}
+            type="button"
+            role="tab"
+            id="tab-prs"
+            aria-controls="panel-prs"
+            aria-selected={tab === 'prs'}
+            tabIndex={tab === 'prs' ? 0 : -1}
+            className="tabs__tab"
+            onClick={() => setTab('prs')}
+          >
+            Pull requests
+          </button>
+          <button
+            ref={tabRefs.calendar}
+            type="button"
+            role="tab"
+            id="tab-calendar"
+            aria-controls="panel-calendar"
+            aria-selected={tab === 'calendar'}
+            tabIndex={tab === 'calendar' ? 0 : -1}
+            className="tabs__tab"
+            onClick={() => setTab('calendar')}
+          >
+            Calendar
+          </button>
+        </div>
+
+        {tab === 'prs' ? (
+          <section className="drawer__section" role="tabpanel" id="panel-prs" aria-labelledby="tab-prs">
+            {prs === 'error' ? (
+              <p className="muted">Couldn't load</p>
+            ) : prs === undefined ? (
+              <p className="muted">Loading…</p>
+            ) : prs.length === 0 ? (
+              <p className="muted">No open pull requests.</p>
+            ) : (
+              <ul className="pr-list">
+                {prs.map((pr) => (
+                  <li key={pr.url}>
+                    <a href={pr.url} target="_blank" rel="noopener noreferrer">
+                      <span className="pr-list__title">
+                        #{pr.number} {pr.title}
+                      </span>
+                      <span className="pr-list__meta">
+                        <span className="pr-list__repo">{pr.repo}</span>
+                        <PrStatusIcons pr={pr} />
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ) : (
+          <section className="drawer__section drawer__section--calendar" role="tabpanel" id="panel-calendar" aria-labelledby="tab-calendar">
+            <CalendarDay githubId={member.githubId} isMe={isMe} />
+          </section>
+        )}
       </aside>
     </>
   )

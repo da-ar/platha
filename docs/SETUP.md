@@ -101,6 +101,15 @@ Teammates can message you from Platha once you've added your Slack member ID:
 
 Open <https://meet.new>, copy the meeting link, and paste it into **Settings → Meet room**. From then on, **Call** opens that room and rings your teammate straight away, with no copying and pasting. Only the person you call sees the link.
 
+### Optional: show when you're in meetings
+
+Platha can show "In a meeting" on your card, plus a Calendar tab with today's busy times. It only ever shows **when** you're busy, never what the meeting is.
+
+1. On GitHub, set **Settings → Public profile → Public email** to your Google work address. Then sign out of Platha and back in, so Platha picks it up.
+2. In Google Calendar, open **Settings → your calendar → Access permissions**, tick **Make available to public**, and choose **See only free/busy (hide details)**.
+
+Platha reads your calendar's public free/busy feed every 5 minutes while anyone has the office open. If Google is unavailable it backs off (5, 10, 20, 40 minutes, then hourly). If the calendar isn't public, it checks again every 6 hours. **Settings → Calendar** shows whether it's working.
+
 ## 8. Local development
 
 ```sh

@@ -101,8 +101,15 @@ app.post('/api/logout', async (c) => {
 app.get('/api/me', async (c) => {
   const member = await requireMember(c)
   if (member instanceof Response) return member
-  const meetUrl = await office(c.env).getMeetUrl(member.githubId)
-  return c.json({ member, meetUrl, config: { org: c.env.GITHUB_ORG, slackTeamId: c.env.SLACK_TEAM_ID } })
+  const o = office(c.env)
+  const [meetUrl, email, calendar] = await Promise.all([o.getMeetUrl(member.githubId), o.getEmail(member.githubId), o.getCalendar(member.githubId)])
+  return c.json({
+    member,
+    meetUrl,
+    email,
+    calendarState: calendar?.state ?? 'no_email',
+    config: { org: c.env.GITHUB_ORG, slackTeamId: c.env.SLACK_TEAM_ID },
+  })
 })
 
 app.patch('/api/profile', async (c) => {
@@ -117,6 +124,16 @@ app.patch('/api/profile', async (c) => {
     meetUrl: meetUrl as string | null | undefined,
   })
   return r.ok ? c.json(r.value) : error(c, 400, r.error)
+})
+
+// Busy times only (cached by the Office); the email and calendar address never leave the server.
+app.get('/api/calendar/:githubId', async (c) => {
+  const member = await requireMember(c)
+  if (member instanceof Response) return member
+  const target = Number(c.req.param('githubId'))
+  if (!Number.isSafeInteger(target) || target <= 0) return error(c, 404, 'not_found')
+  const calendar = await office(c.env).getCalendar(target)
+  return calendar ? c.json(calendar) : error(c, 404, 'not_found')
 })
 
 function inviteUrl(c: AppContext, code: string): string {
