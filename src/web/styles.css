@@ -488,43 +488,6 @@ a.hint {
   background: var(--grey);
 }
 
-/* PR pills */
-
-.pill {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--text-2);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.pill--ready {
-  background: var(--green-soft);
-  color: var(--green);
-}
-
-.pill--fail {
-  background: var(--red-soft);
-  color: var(--red);
-}
-
-.pill--changes {
-  background: var(--amber-soft);
-  color: var(--amber);
-}
-
-.pill--review {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.pill--more {
-  background: transparent;
-  color: var(--text-3);
-}
-
 /* Panels */
 
 .panel {
@@ -822,4 +785,41 @@ a.hint {
 
 .status-icon--warn {
   color: var(--amber);
+}
+
+.status-icon--accent {
+  color: var(--accent);
+}
+
+.status-icon--muted {
+  color: var(--text-3);
+}
+
+/* Tile PR summary */
+
+.tile__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tile__open {
+  color: var(--text-2);
+}
+
+.tile__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.tile__count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.tile__waiting {
+  font-weight: 600;
 }
