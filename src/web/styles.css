@@ -927,7 +927,7 @@ a.hint {
 }
 
 .drawer__section--calendar {
-  padding-bottom: 0;
+  padding-bottom: 12px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -975,8 +975,10 @@ a.hint {
 }
 
 .cal__scroll {
+  /* Fill the drawer below the tabs and date; the drawer scrolls on very short screens. */
+  flex: 1;
+  min-height: 240px;
   overflow-y: auto;
-  max-height: min(60vh, 560px);
   border-top: 1px solid var(--border);
 }
 
