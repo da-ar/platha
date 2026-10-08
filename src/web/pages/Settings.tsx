@@ -4,6 +4,7 @@ import { getInvite, logout, removeMember, rotateInvite, updateProfile, type Cale
 import { go } from '../navigate'
 import { Avatar } from '../office/Avatar'
 import { useOffice } from '../office/useOffice'
+import { getTheme, setTheme, type Theme } from '../theme'
 import { clearToken, setToken } from '../token'
 import { TokenField } from './TokenField'
 
@@ -33,6 +34,7 @@ export function Settings({
       <SlackSection me={self} />
       <MeetRoomSection meetUrl={meetUrl} />
       <CalendarSection email={email} source={emailSource} state={calendarState} />
+      <AppearanceSection />
       <TokenSection />
       {self.role === 'admin' && <AdminSection me={self} members={Object.values(state.members)} />}
       <section className="panel">
@@ -186,6 +188,40 @@ function CalendarSection({ email, source, state }: { email: string | null; sourc
           <p className="hint">{EMAIL_PERMISSION_HELP}</p>
         </>
       )}
+    </section>
+  )
+}
+
+const THEMES: { value: Theme; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+]
+
+/** Per-browser: saved locally, applied immediately. */
+function AppearanceSection() {
+  const [theme, setThemeState] = useState<Theme>(getTheme)
+  return (
+    <section className="panel">
+      <h2 id="appearance-heading">Appearance</h2>
+      <div className="segmented" role="radiogroup" aria-labelledby="appearance-heading">
+        {THEMES.map((t) => (
+          <label key={t.value} className={`segmented__option${theme === t.value ? ' segmented__option--on' : ''}`}>
+            <input
+              type="radio"
+              name="theme"
+              value={t.value}
+              checked={theme === t.value}
+              onChange={() => {
+                setTheme(t.value)
+                setThemeState(t.value)
+              }}
+            />
+            {t.label}
+          </label>
+        ))}
+      </div>
+      <p className="hint">System follows your device's light or dark setting. Saved in this browser.</p>
     </section>
   )
 }

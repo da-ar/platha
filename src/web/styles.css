@@ -26,8 +26,9 @@
   line-height: 1.45;
 }
 
+/* Dark theme: follows the system unless the user picked a theme in Settings. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     color-scheme: dark;
     --bg: #161513;
     --surface: #201f1c;
@@ -45,6 +46,25 @@
     --green-soft: #1f3528;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
   }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #161513;
+  --surface: #201f1c;
+  --surface-2: #2a2825;
+  --border: #36332f;
+  --text: #f1eee8;
+  --text-2: #b9b3a9;
+  --text-3: #8a847a;
+  --accent: #7b8cff;
+  --accent-text: #0e1030;
+  --accent-soft: #262b4d;
+  --red-soft: #3a2222;
+  --purple: #b39dff;
+  --amber-soft: #3a3020;
+  --green-soft: #1f3528;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
 }
 
 * {
@@ -1043,4 +1063,41 @@ a.hint {
   margin: 8px 0;
   padding-left: 20px;
   color: var(--text-2);
+}
+
+/* Segmented control (Settings → Appearance) */
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.segmented__option {
+  position: relative;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.segmented__option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmented__option--on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.segmented__option:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
