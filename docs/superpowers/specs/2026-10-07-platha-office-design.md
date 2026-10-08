@@ -254,7 +254,7 @@ Knocks are never persisted. The Call button is disabled for offline teammates.
 | Situation | Behaviour |
 |---|---|
 | GitHub 401 (token revoked/expired) | Banner: "Your GitHub token stopped working — paste a new one." Presence keeps working. |
-| GitHub rate limit / 5xx | Exponential backoff (max 10 min); keep last data; show "Updated 4m ago". |
+| GitHub rate limit / 5xx | Exponential backoff (max 10 min); keep last data. The Needs-you header turns amber: "Updated 4m ago · retrying". No banner, so nothing shifts. The header always shows "Updated …" plus a Refresh button. |
 | WebSocket drops | Reconnect with backoff (1 s → 30 s max); "Reconnecting…" indicator. |
 | One teammate's search fails | That tile shows "Couldn't load"; the others are unaffected. |
 | Knock unanswered | 45 s timeout → "No answer — try Slack?" |

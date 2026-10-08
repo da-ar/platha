@@ -1,5 +1,8 @@
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import type { AttentionItem, AttentionKind } from '../github/attention'
 import type { GitHubStatus } from '../github/useGitHub'
+import { updatedAgo } from './Banner'
+import { GLYPHS } from './PrStatusIcons'
 
 export const KIND_LABEL: Record<AttentionKind, string> = {
   review_requested: 'Review requested',
@@ -17,12 +20,58 @@ const KIND_ICON: Record<AttentionKind, string> = {
   ci_failing: '❌',
 }
 
-export function NeedsYou({ items, status, onOpen }: { items: AttentionItem[]; status: GitHubStatus; onOpen: (item: AttentionItem) => void }) {
+export interface NeedsYouProps {
+  items: AttentionItem[]
+  status: GitHubStatus
+  onOpen: (item: AttentionItem) => void
+  updatedAt?: number | null
+  now?: number
+  fetching?: boolean
+  onRefresh?: () => void
+}
+
+/** Freshness of the GitHub data; amber when the latest refresh failed. */
+function Freshness({ status, updatedAt, now }: { status: GitHubStatus; updatedAt: number | null; now: number }) {
+  const failed = status === 'error'
+  if (updatedAt === null && !failed) return null
+  const text = updatedAt === null ? "Couldn't reach GitHub" : updatedAgo(updatedAt, now)
+  return (
+    <span className={`needs__updated${failed ? ' needs__updated--stale' : ''}`}>
+      {text}
+      {failed ? ' · retrying' : ''}
+    </span>
+  )
+}
+
+export function NeedsYou({ items, status, onOpen, updatedAt = null, now = Date.now(), fetching = false, onRefresh }: NeedsYouProps) {
+  // Animates only what changed: new rows fade in, removed rows fade out, moved rows glide.
+  const [listRef] = useAutoAnimate<HTMLUListElement>()
   return (
     <section className="panel needs" aria-labelledby="needs-heading">
-      <h2 id="needs-heading">
-        Needs you{status !== 'loading' && status !== 'unauthorized' ? ` · ${items.length}` : ''}
-      </h2>
+      <div className="needs__head">
+        <h2 id="needs-heading">
+          Needs you{status !== 'loading' && status !== 'unauthorized' ? ` · ${items.length}` : ''}
+        </h2>
+        {status !== 'unauthorized' && (
+          <span className="needs__meta">
+            <Freshness status={status} updatedAt={updatedAt} now={now} />
+            {onRefresh && (
+              <button
+                type="button"
+                className={`icon-btn${fetching ? ' icon-btn--busy' : ''}`}
+                aria-label="Refresh"
+                title="Refresh from GitHub"
+                disabled={fetching}
+                onClick={onRefresh}
+              >
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  {GLYPHS.refresh}
+                </svg>
+              </button>
+            )}
+          </span>
+        )}
+      </div>
       {status === 'loading' && items.length === 0 ? (
         <p className="muted">Checking GitHub…</p>
       ) : status === 'unauthorized' ? (
@@ -30,7 +79,7 @@ export function NeedsYou({ items, status, onOpen }: { items: AttentionItem[]; st
       ) : items.length === 0 ? (
         <p className="muted">Nothing needs you right now.</p>
       ) : (
-        <ul className="needs__list">
+        <ul className="needs__list" ref={listRef}>
           {items.map((item) => (
             <li key={item.url}>
               <button type="button" className={`needs__item needs__item--${item.kind}`} onClick={() => onOpen(item)}>

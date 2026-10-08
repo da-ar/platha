@@ -1,3 +1,4 @@
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { displayName, type Member } from '../../shared/types'
 import type { OfficeConfig } from '../api'
@@ -12,7 +13,7 @@ import { loadSeen, markSeen } from '../github/seen'
 import { useGitHub } from '../github/useGitHub'
 import { openTab } from '../navigate'
 import { setToken } from '../token'
-import { Banner, TokenBanner, updatedAgo } from './Banner'
+import { TokenBanner } from './Banner'
 import { Drawer } from './Drawer'
 import { NeedsYou } from './NeedsYou'
 import { StatusPicker } from './StatusPicker'
@@ -37,7 +38,9 @@ export function sortMembers(members: Member[]): Member[] {
 export function OfficeView({ me, config }: { me: Member; config: OfficeConfig }) {
   const office = useOffice()
   const { state, send } = office
-  const now = useNow(30_000)
+  const now = useNow(10_000)
+  // Tiles glide to their new place when someone comes online or goes offline.
+  const [tilesRef] = useAutoAnimate<HTMLDivElement>()
   const [selected, setSelected] = useState<number | null>(null)
   const [calling, setCalling] = useState<{ member: Member; popupBlocked: boolean } | null>(null)
   const knocks = useKnocks(office, state.members)
@@ -112,13 +115,9 @@ export function OfficeView({ me, config }: { me: Member; config: OfficeConfig })
           }}
         />
       )}
-      {github.status === 'error' && (
-        <Banner tone="info">{github.updatedAt ? updatedAgo(github.updatedAt, now) : "Couldn't reach GitHub — retrying."}</Banner>
-      )}
-
       <main className="office">
         <section className="office__team" aria-label="Team">
-          <div className="tiles">
+          <div className="tiles" ref={tilesRef}>
             {members.map((m) => (
               <Tile
                 key={m.githubId}
@@ -132,7 +131,15 @@ export function OfficeView({ me, config }: { me: Member; config: OfficeConfig })
           </div>
         </section>
         <aside className="office__side">
-          <NeedsYou items={items} status={github.status} onOpen={openItem} />
+          <NeedsYou
+            items={items}
+            status={github.status}
+            onOpen={openItem}
+            updatedAt={github.updatedAt}
+            now={now}
+            fetching={github.fetching}
+            onRefresh={github.refresh}
+          />
         </aside>
       </main>
 
