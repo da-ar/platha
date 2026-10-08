@@ -1,0 +1,243 @@
+{
+  "data": {
+    "reviewRequested": {
+      "nodes": [
+        {
+          "url": "https://github.com/acme/api/pull/412",
+          "number": 412,
+          "title": "Add rate limiter",
+          "isDraft": false,
+          "reviewDecision": "REVIEW_REQUIRED",
+          "mergeable": "MERGEABLE",
+          "updatedAt": "2026-10-07T10:00:00Z",
+          "repository": {
+            "nameWithOwner": "acme/api"
+          },
+          "author": {
+            "login": "bob"
+          },
+          "commits": {
+            "nodes": [
+              {
+                "commit": {
+                  "statusCheckRollup": {
+                    "state": "SUCCESS"
+                  }
+                }
+              }
+            ]
+          },
+          "comments": {
+            "nodes": []
+          },
+          "reviews": {
+            "nodes": []
+          }
+        }
+      ]
+    },
+    "mine": {
+      "nodes": [
+        {
+          "url": "https://github.com/acme/api/pull/401",
+          "number": 401,
+          "title": "Ship the parser",
+          "isDraft": false,
+          "reviewDecision": "APPROVED",
+          "mergeable": "MERGEABLE",
+          "updatedAt": "2026-10-07T10:00:00Z",
+          "repository": {
+            "nameWithOwner": "acme/api"
+          },
+          "author": {
+            "login": "alice"
+          },
+          "commits": {
+            "nodes": [
+              {
+                "commit": {
+                  "statusCheckRollup": {
+                    "state": "SUCCESS"
+                  }
+                }
+              }
+            ]
+          },
+          "comments": {
+            "nodes": []
+          },
+          "reviews": {
+            "nodes": [
+              {
+                "author": {
+                  "login": "bob"
+                },
+                "submittedAt": "2026-10-07T09:00:00Z"
+              }
+            ]
+          }
+        },
+        {
+          "url": "https://github.com/acme/web/pull/405",
+          "number": 405,
+          "title": "Fix flaky test",
+          "isDraft": false,
+          "reviewDecision": "REVIEW_REQUIRED",
+          "mergeable": "MERGEABLE",
+          "updatedAt": "2026-10-07T10:00:00Z",
+          "repository": {
+            "nameWithOwner": "acme/web"
+          },
+          "author": {
+            "login": "alice"
+          },
+          "commits": {
+            "nodes": [
+              {
+                "commit": {
+                  "statusCheckRollup": {
+                    "state": "FAILURE"
+                  }
+                }
+              }
+            ]
+          },
+          "comments": {
+            "nodes": []
+          },
+          "reviews": {
+            "nodes": []
+          }
+        },
+        {
+          "url": "https://github.com/acme/api/pull/398",
+          "number": 398,
+          "title": "Refactor <script>alert(1)</script> loader",
+          "isDraft": true,
+          "reviewDecision": null,
+          "mergeable": "MERGEABLE",
+          "updatedAt": "2026-10-07T10:00:00Z",
+          "repository": {
+            "nameWithOwner": "acme/api"
+          },
+          "author": {
+            "login": "alice"
+          },
+          "commits": {
+            "nodes": [
+              {
+                "commit": {
+                  "statusCheckRollup": {
+                    "state": "PENDING"
+                  }
+                }
+              }
+            ]
+          },
+          "comments": {
+            "nodes": [
+              {
+                "author": {
+                  "login": "carol"
+                },
+                "createdAt": "2026-10-07T12:00:00Z"
+              }
+            ]
+          },
+          "reviews": {
+            "nodes": [
+              {
+                "author": {
+                  "login": "bob"
+                },
+                "submittedAt": "2026-10-07T11:00:00Z"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "mentions": {
+      "nodes": [
+        {
+          "url": "https://github.com/acme/api/issues/77",
+          "number": 77,
+          "title": "Outage follow-up",
+          "updatedAt": "2026-10-07T08:00:00Z",
+          "repository": {
+            "nameWithOwner": "acme/api"
+          }
+        }
+      ]
+    },
+    "t0": {
+      "nodes": [
+        {
+          "url": "https://github.com/acme/api/pull/412",
+          "number": 412,
+          "title": "Add rate limiter",
+          "isDraft": false,
+          "reviewDecision": "REVIEW_REQUIRED",
+          "mergeable": "MERGEABLE",
+          "updatedAt": "2026-10-07T10:00:00Z",
+          "repository": {
+            "nameWithOwner": "acme/api"
+          },
+          "author": {
+            "login": "bob"
+          },
+          "commits": {
+            "nodes": [
+              {
+                "commit": {
+                  "statusCheckRollup": {
+                    "state": "SUCCESS"
+                  }
+                }
+              }
+            ]
+          },
+          "comments": {
+            "nodes": []
+          },
+          "reviews": {
+            "nodes": []
+          }
+        },
+        {
+          "url": "https://github.com/acme/api/pull/413",
+          "number": 413,
+          "title": "Bump deps",
+          "isDraft": false,
+          "reviewDecision": "CHANGES_REQUESTED",
+          "mergeable": "MERGEABLE",
+          "updatedAt": "2026-10-07T10:00:00Z",
+          "repository": {
+            "nameWithOwner": "acme/api"
+          },
+          "author": {
+            "login": "bob"
+          },
+          "commits": {
+            "nodes": [
+              {
+                "commit": {
+                  "statusCheckRollup": null
+                }
+              }
+            ]
+          },
+          "comments": {
+            "nodes": []
+          },
+          "reviews": {
+            "nodes": []
+          }
+        }
+      ]
+    },
+    "t1": {
+      "nodes": []
+    }
+  }
+}
