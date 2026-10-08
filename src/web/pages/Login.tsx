@@ -5,8 +5,38 @@ import { getToken, setToken } from '../token'
 import { AuthCard } from './Shell'
 import { authError, NEED_INVITE, TokenField } from './TokenField'
 
+const AUTO_LOGIN_KEY = 'platha.autoLoginTried'
+
+function autoLoginTried(): boolean {
+  try {
+    return sessionStorage.getItem(AUTO_LOGIN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function markAutoLoginTried(): void {
+  try {
+    sessionStorage.setItem(AUTO_LOGIN_KEY, '1')
+  } catch {
+    // storage unavailable: the in-memory guard still applies for this page
+  }
+}
+
+/** Called once the office loads, so a later expiry can sign back in automatically again. */
+export function clearAutoLoginAttempt(): void {
+  try {
+    sessionStorage.removeItem(AUTO_LOGIN_KEY)
+  } catch {
+    // ignore
+  }
+}
+
 export function Login() {
-  const saved = getToken()
+  // A saved token signs straight back in, but only once per tab until the office
+  // loads: if signing in "works" and we land here again, stop rather than loop.
+  const hasToken = getToken() !== null
+  const saved = autoLoginTried() ? null : getToken()
   const [token, setTokenValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(saved !== null)
@@ -27,6 +57,7 @@ export function Login() {
   useEffect(() => {
     if (saved === null || tried.current) return
     tried.current = true
+    markAutoLoginTried()
     void attempt(saved).then((ok) => !ok && setBusy(false))
   }, [saved])
 
@@ -47,7 +78,7 @@ export function Login() {
           Sign in
         </button>
       </form>
-      {saved === null && error === null && <p className="muted">{NEED_INVITE}</p>}
+      {!hasToken && error === null && <p className="muted">{NEED_INVITE}</p>}
     </AuthCard>
   )
 }
