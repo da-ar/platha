@@ -104,12 +104,16 @@ docs/
 1. A teammate opens `/join/<invite-code>`.
 2. They paste a GitHub token (guided by an inline how-to).
 3. The browser sends the invite code + token to `POST /api/join`. The server:
-   - checks the invite code (constant-time compare against a stored SHA-256 hash; rate-limited to 10 attempts per IP per 10 minutes),
+   - checks the invite code (constant-time compare against the stored code; rate-limited to 10 failed attempts per IP per 10 minutes),
    - calls GitHub `GET /user` once with the token,
    - upserts the member (GitHub id, login, name, avatar URL),
    - creates a session and sets the cookie,
    - **discards the token** (never logged, never stored).
 4. The browser stores the token in `localStorage` for its own GitHub queries.
+
+### Signing in again
+
+An existing member on a new browser (or after their session expires) opens the app, pastes their token, and `POST /api/login` verifies it via GitHub `GET /user`. If that GitHub id is a current member, a new session is created; no invite link is needed. Unknown ids get "You need an invite link."
 
 Anyone with a valid invite link and any GitHub account can join (org membership is deliberately **not** checked, to avoid needing the `read:org` scope). Someone who joins with a leaked link sees names, avatars and statuses, but no PR data beyond what their own token can already read.
 
@@ -159,7 +163,7 @@ members(github_id INTEGER PK, login TEXT, name TEXT, avatar_url TEXT,
         slack_user_id TEXT NULL, role TEXT CHECK(role IN ('admin','member')),
         status TEXT, status_text TEXT, joined_at INTEGER)
 sessions(id TEXT PK, github_id INTEGER, created_at INTEGER, expires_at INTEGER)
-config(key TEXT PK, value TEXT)   -- invite_code_hash
+config(key TEXT PK, value TEXT)   -- invite_code
 ```
 
 Online/offline state is held in memory (derived from open sockets) and is not persisted.
@@ -172,14 +176,14 @@ Server → client:
 - `member_removed { githubId }`
 - `knock { knockId, from, meetUrl }`
 - `knock_answered { knockId, answer: 'join' | 'decline' }`
-- `knock_failed { knockId, reason: 'offline' | 'timeout' }`
+- `knock_failed { knockId, reason: 'offline' }` (the 45 s timeout runs in the caller's client)
 - `session_revoked`
 
 Client → server:
 - `ping`
 - `set_status { status, text? }`
-- `knock { to, meetUrl }`
-- `knock_answer { knockId, answer }`
+- `knock { knockId, to, meetUrl }` (`knockId` is a client-generated UUID)
+- `knock_answer { knockId, to, answer }` (`to` is the caller)
 
 All incoming messages are validated against the schema; invalid messages are dropped.
 
@@ -228,7 +232,7 @@ The Chat button opens `slack://user?team=<SLACK_TEAM_ID>&id=<slack_user_id>`. If
 
 1. Caller clicks **Call** on an online teammate. A new tab opens `https://meet.new`.
 2. A modal in Platha asks the caller to paste the Meet link. It must match `^https://meet\.google\.com/[a-z]{3}-[a-z]{4}-[a-z]{3}$`.
-3. The client sends `knock { to, meetUrl }`. The DO relays it to all of the callee's sockets.
+3. The client sends `knock { knockId, to, meetUrl }`. The DO relays it to all of the callee's sockets.
 4. The callee sees a ringing toast: "<Caller> is calling. **Join** · **Not now**". Join opens the Meet URL.
 5. The caller sees the answer, or after **45 s** "No answer — try Slack?", or "<Name> just went offline" if the callee disconnects.
 
@@ -242,7 +246,7 @@ Knocks are never persisted. The Call button is disabled for offline teammates.
   - All GitHub-sourced text rendered as plain text (no `dangerouslySetInnerHTML`, no markdown rendering).
 - Tokens are never sent to the server except once during join/setup, and never logged.
 - Meet URLs and Slack IDs are validated on both client and server against the patterns above.
-- Invite code hashed at rest; join attempts rate-limited.
+- Invite code stored in the Durable Object (readable only by the admin, so they can copy the link again); failed join attempts rate-limited.
 - Removing a member revokes their sessions and closes their sockets immediately.
 
 ## 9. Error handling
