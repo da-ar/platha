@@ -134,9 +134,14 @@ export function countJoinFailures(sql: SqlStorage, ip: string, since: number): n
   return sql.exec<{ n: number }>('SELECT COUNT(*) AS n FROM join_failures WHERE ip = ? AND at > ?', ip, since).one().n
 }
 
-export function recordJoinFailure(sql: SqlStorage, ip: string, now: number, pruneBefore: number): void {
-  sql.exec('DELETE FROM join_failures WHERE at <= ?', pruneBefore)
+export function recordJoinFailure(sql: SqlStorage, ip: string, now: number): void {
   sql.exec('INSERT INTO join_failures (ip, at) VALUES (?, ?)', ip, now)
+}
+
+/** Deletes failures at or before `before`; returns the time of the oldest one left, if any. */
+export function pruneJoinFailures(sql: SqlStorage, before: number): number | null {
+  sql.exec('DELETE FROM join_failures WHERE at <= ?', before)
+  return sql.exec<{ at: number | null }>('SELECT MIN(at) AS at FROM join_failures').one().at
 }
 
 export function getPendingOffline(sql: SqlStorage, githubId: number): number | null {

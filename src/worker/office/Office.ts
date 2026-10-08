@@ -109,8 +109,15 @@ export class Office extends DurableObject<Env> {
       }
     }
 
-    if (nextDue !== Infinity) await this.scheduleAlarm(Math.max(1000, nextDue))
-    else if (this.ctx.getWebSockets().length > 0) await this.scheduleAlarm(ALARM_INTERVAL_MS)
+    const delays: number[] = []
+    if (nextDue !== Infinity) delays.push(Math.max(1000, nextDue))
+    else if (this.ctx.getWebSockets().length > 0) delays.push(ALARM_INTERVAL_MS)
+
+    // Failed joins are only needed for the rate-limit window.
+    const oldestFailure = store.pruneJoinFailures(this.sql, now - JOIN_FAILURE_WINDOW_MS)
+    if (oldestFailure !== null) delays.push(Math.max(1000, oldestFailure + JOIN_FAILURE_WINDOW_MS - now + 1))
+
+    if (delays.length > 0) await this.scheduleAlarm(Math.min(...delays))
   }
 
   protected handleMessage(from: number, msg: ClientMessage): void {
@@ -243,7 +250,9 @@ export class Office extends DurableObject<Env> {
     if (store.countJoinFailures(this.sql, ip, since) >= JOIN_FAILURE_LIMIT) return { ok: false, error: 'rate_limited' }
     const expected = store.getConfig(this.sql, 'invite_code')
     if (expected !== null && (await safeEqual(code, expected))) return { ok: true, value: null }
-    store.recordJoinFailure(this.sql, ip, now, since)
+    store.recordJoinFailure(this.sql, ip, now)
+    // Failed joins store an IP address; the alarm deletes them once they're no longer needed.
+    await this.scheduleAlarm(JOIN_FAILURE_WINDOW_MS + 1000)
     return { ok: false, error: 'bad_invite' }
   }
 

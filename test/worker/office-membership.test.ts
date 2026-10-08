@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { runInDurableObject } from 'cloudflare:test'
+import { runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test'
 import type { Office } from '../../src/worker/office/Office'
 import { alice, bob, carol, freshOffice, setNow } from './helpers'
 
@@ -113,5 +113,40 @@ describe('members and sessions', () => {
     expect(await office.getInvite(1)).toEqual({ ok: true, value: inviteCode })
     expect(await office.getInvite(2)).toEqual({ ok: false, error: 'forbidden' })
     expect(await office.getInvite(99)).toEqual({ ok: false, error: 'forbidden' })
+  })
+})
+
+describe('join failure cleanup', () => {
+  const countFailures = (office: ReturnType<typeof freshOffice>) =>
+    runInDurableObject(office, (_o: Office, state) => state.storage.sql.exec('SELECT COUNT(*) AS n FROM join_failures').one().n)
+
+  test('failed joins are deleted by the alarm once they are 10 minutes old', async () => {
+    const { office } = await setUpOffice()
+    await office.checkInvite('wrong', '1.1.1.1')
+    await setNow(office, T0 + 5 * 60 * 1000)
+    await office.checkInvite('wrong', '2.2.2.2')
+    expect(await countFailures(office)).toBe(2)
+
+    // A failure schedules the cleanup alarm even with nobody connected.
+    await setNow(office, T0 + 10 * 60 * 1000 + 1)
+    expect(await runDurableObjectAlarm(office)).toBe(true)
+    expect(await countFailures(office)).toBe(1)
+
+    // The alarm is rescheduled for the remaining record.
+    await setNow(office, T0 + 15 * 60 * 1000 + 1)
+    expect(await runDurableObjectAlarm(office)).toBe(true)
+    expect(await countFailures(office)).toBe(0)
+
+    // Nothing left to clean up, so no further alarm.
+    expect(await runDurableObjectAlarm(office)).toBe(false)
+  })
+
+  test('recent failures survive the alarm and still count toward the limit', async () => {
+    const { office, inviteCode } = await setUpOffice()
+    for (let i = 0; i < 10; i++) await office.checkInvite('wrong', '1.1.1.1')
+    await setNow(office, T0 + 60 * 1000)
+    await runDurableObjectAlarm(office)
+    expect(await countFailures(office)).toBe(10)
+    expect(await office.checkInvite(inviteCode, '1.1.1.1')).toEqual({ ok: false, error: 'rate_limited' })
   })
 })
