@@ -28,24 +28,46 @@ beforeEach(() => {
   vi.useFakeTimers()
   listener = null
   office.send.mockReset()
+  office.send.mockReturnValue(true)
 })
 
 afterEach(() => {
   vi.useRealTimers()
 })
 
-test('call sends a knock and rings', () => {
+test('call sends a knock and waits for the server to ring', () => {
   const { result } = renderHook(() => useKnocks(office, members))
   act(() => result.current.call(bob, MEET))
   const sent = office.send.mock.calls[0][0]
   expect(sent).toMatchObject({ type: 'knock', to: 2, meetUrl: MEET })
   expect(sent.knockId).toMatch(/^[0-9a-f-]{36}$/)
-  expect(result.current.outgoing).toMatchObject({ knockId: sent.knockId, to: bob, state: 'ringing' })
+  expect(result.current.outgoing).toMatchObject({ knockId: sent.knockId, to: bob, state: 'calling' })
+  emit({ type: 'knock_ringing', knockId: sent.knockId })
+  expect(result.current.outgoing?.state).toBe('ringing')
+})
+
+test('a knock that cannot be sent is unreachable straight away', () => {
+  office.send.mockReturnValue(false)
+  const { result } = renderHook(() => useKnocks(office, members))
+  act(() => result.current.call(bob, MEET))
+  expect(result.current.outgoing?.state).toBe('unreachable')
+  act(() => vi.advanceTimersByTime(45_000))
+  expect(result.current.outgoing?.state).toBe('unreachable')
+})
+
+test('no delivery confirmation within 8s → unreachable', () => {
+  const { result } = renderHook(() => useKnocks(office, members))
+  act(() => result.current.call(bob, MEET))
+  act(() => vi.advanceTimersByTime(7_999))
+  expect(result.current.outgoing?.state).toBe('calling')
+  act(() => vi.advanceTimersByTime(1))
+  expect(result.current.outgoing?.state).toBe('unreachable')
 })
 
 test('outgoing knock times out after 45s → no_answer', () => {
   const { result } = renderHook(() => useKnocks(office, members))
   act(() => result.current.call(bob, MEET))
+  emit({ type: 'knock_ringing', knockId: result.current.outgoing!.knockId })
   act(() => vi.advanceTimersByTime(44_999))
   expect(result.current.outgoing?.state).toBe('ringing')
   act(() => vi.advanceTimersByTime(1))
@@ -57,7 +79,7 @@ test('answers update the outgoing knock and stick', () => {
   act(() => result.current.call(bob, MEET))
   const knockId = result.current.outgoing!.knockId
   emit({ type: 'knock_answered', knockId: crypto.randomUUID(), answer: 'join' })
-  expect(result.current.outgoing?.state).toBe('ringing')
+  expect(result.current.outgoing?.state).toBe('calling')
   emit({ type: 'knock_answered', knockId, answer: 'decline' })
   expect(result.current.outgoing?.state).toBe('declined')
   act(() => vi.advanceTimersByTime(45_000))

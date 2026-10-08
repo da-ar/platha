@@ -36,15 +36,23 @@ test('two teammates see each other and can knock', async ({ browser }) => {
   await expect(alice.getByRole('heading', { name: /Needs you · \d+/ })).toBeVisible()
 
   await alice.getByRole('button', { name: 'bob, Online' }).click()
-  await alice.getByRole('button', { name: 'Call' }).click()
+  await alice.getByRole('button', { name: 'Call', exact: true }).click()
   await expect(alice.getByRole('link', { name: 'Open Google Meet' })).toBeVisible()
   await alice.getByLabel('Meet link').fill('https://meet.google.com/abc-defg-hij')
   await alice.getByRole('button', { name: 'Ring bob' }).click()
-  await expect(alice.getByText('Calling bob…')).toBeVisible()
+  await expect(alice.getByText('Ringing bob…')).toBeVisible()
 
   await expect(bob.getByText('alice is calling')).toBeVisible()
+  await expect(bob).toHaveTitle(/alice is calling|Platha/)
+  expect(await bob.evaluate(() => new Promise<boolean>((resolve) => {
+    // The title flashes; within two flashes it must show the caller.
+    const end = Date.now() + 2500
+    const check = () => (document.title.includes('alice is calling') ? resolve(true) : Date.now() > end ? resolve(false) : setTimeout(check, 100))
+    check()
+  }))).toBe(true)
   await bob.getByRole('button', { name: 'Not now' }).click()
   await expect(alice.getByText("bob can't talk right now")).toBeVisible()
+  await expect(bob).toHaveTitle('Platha')
 
   await alice.getByRole('dialog', { name: 'Call bob' }).getByRole('button', { name: 'Close' }).click()
   await alice.keyboard.press('Escape')

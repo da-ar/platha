@@ -30,7 +30,7 @@ function setOffice(over: Partial<Office['state']> = {}) {
       },
       ...over,
     },
-    send: vi.fn(),
+    send: vi.fn(() => true),
     subscribe: vi.fn(() => () => {}),
   }
   vi.mocked(useOffice).mockImplementation(() => office)

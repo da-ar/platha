@@ -7,8 +7,12 @@ import type { Outgoing } from './useKnocks'
 export function outgoingCopy(o: Outgoing): string {
   const name = displayName(o.to)
   switch (o.state) {
-    case 'ringing':
+    case 'calling':
       return `Calling ${name}…`
+    case 'ringing':
+      return `Ringing ${name}…`
+    case 'unreachable':
+      return `Couldn't reach ${name} — check your connection and try again.`
     case 'joined':
       return `${name} is joining the call`
     case 'declined':

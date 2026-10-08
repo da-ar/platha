@@ -19,7 +19,8 @@ function reducer(state: OfficeState, action: Action): OfficeState {
 
 export interface Office {
   state: OfficeState
-  send: (m: ClientMessage) => void
+  /** Returns false if the message couldn't be sent because the socket isn't open. */
+  send: (m: ClientMessage) => boolean
   subscribe: (fn: (m: ServerMessage) => void) => () => void
 }
 
@@ -96,7 +97,9 @@ export function useOffice(): Office {
 
   const send = useCallback((m: ClientMessage) => {
     const ws = socket.current
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m))
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false
+    ws.send(JSON.stringify(m))
+    return true
   }, [])
 
   const subscribe = useCallback((fn: (m: ServerMessage) => void) => {

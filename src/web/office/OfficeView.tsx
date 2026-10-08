@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { displayName, type Member } from '../../shared/types'
 import type { OfficeConfig } from '../api'
+import { AlertsButton } from '../call/AlertsButton'
 import { CallModal } from '../call/CallModal'
 import { KnockToasts } from '../call/KnockToast'
 import { openNewMeet } from '../call/meet'
 import { useKnocks } from '../call/useKnocks'
+import { useRinging } from '../call/ring'
 import { computeAttention, type AttentionItem } from '../github/attention'
 import { loadSeen, markSeen } from '../github/seen'
 import { useGitHub } from '../github/useGitHub'
@@ -39,6 +41,7 @@ export function OfficeView({ me, config }: { me: Member; config: OfficeConfig })
   const [selected, setSelected] = useState<number | null>(null)
   const [calling, setCalling] = useState<{ member: Member; popupBlocked: boolean } | null>(null)
   const knocks = useKnocks(office, state.members)
+  useRinging(knocks.incoming)
   const closeDrawer = useCallback(() => setSelected(null), [])
   const [seen, setSeen] = useState(loadSeen)
 
@@ -93,6 +96,7 @@ export function OfficeView({ me, config }: { me: Member; config: OfficeConfig })
         <StatusPicker me={self} send={send} />
         <div className="topbar__end">
           {state.connection === 'reconnecting' && <span className="reconnecting">Reconnecting…</span>}
+          <AlertsButton />
           <a className="btn btn--ghost" href="/settings">
             Settings
           </a>

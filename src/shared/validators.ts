@@ -6,8 +6,10 @@ const SLACK_USER_ID = /^[UW][A-Z0-9]{6,}$/
 /** Returns the canonical `https://meet.google.com/abc-defg-hij` form, or null if not a Meet room link. */
 export function normalizeMeetUrl(input: string): string | null {
   let url: URL
+  const text = input.trim()
   try {
-    url = new URL(input.trim())
+    // Accept a link copied without its scheme, e.g. "meet.google.com/abc-defg-hij".
+    url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`)
   } catch {
     return null
   }

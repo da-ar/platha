@@ -36,6 +36,8 @@ describe('knocks', () => {
       expect(await b.next('knock')).toEqual({ type: 'knock', knockId, from: 1, meetUrl: MEET })
     }
     expect(a.all('knock')).toEqual([])
+    expect(await a.next('knock_ringing')).toEqual({ type: 'knock_ringing', knockId })
+    expect(a.all('knock_ringing')).toHaveLength(1)
   })
 
   test('knock to offline member returns knock_failed offline to caller', async () => {
@@ -44,6 +46,7 @@ describe('knocks', () => {
     const knockId = crypto.randomUUID()
     a.send({ type: 'knock', knockId, to: 2, meetUrl: MEET })
     expect(await a.next('knock_failed')).toEqual({ type: 'knock_failed', knockId, reason: 'offline' })
+    expect(a.all('knock_ringing')).toEqual([])
   })
 
   test('knock_answer reaches caller', async () => {
